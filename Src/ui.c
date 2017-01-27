@@ -9,6 +9,7 @@
 #include "GUI.h"
 
 extern void LT_ShowVoltages (void);
+extern void LT_ShowClock (void);
 
 uint8_t		menupos = 0;		// Eerste menuitem in beeld
 uint8_t		selecteditem = 0;	// Geselecteerd item
@@ -29,7 +30,7 @@ const ui_menu	LT_MainMenu = {
 		{ "Instellingen", &UI_ShowMenu, NULL, &LT_SettingsMenu },
 		{ "Toon spanningen", &LT_ShowVoltages },
 		{ "Shutter delay test" },
-		{ "Toon klok" },
+		{ "Toon klok", &LT_ShowClock },
 		{ "Toon klokfrequentie" },
 		{ "Overige informatie" },
 		{ "Uitschakelen", &EnterDeepSleep }

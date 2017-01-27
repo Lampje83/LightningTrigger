@@ -41,19 +41,18 @@
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
+
 #include "../../Drivers/SH1106/sh1106.h"
 #include "ui.h"
+#include "functions.h"
+#include "input.h"
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
-typedef enum
-{
-	OFF, ON, LONG_PRESS, VERYLONG_PRESS, RISING, FALLING
-} switch_state;
 
 typedef enum
 {
@@ -69,31 +68,22 @@ typedef enum
 	SHOWCLOCK
 } run_state;
 
-typedef struct
-{
-	switch_state state;
-	uint16_t locount;
-	uint16_t hicount;
-} switch_t;
+#define NUM_SAMPLES			128
 
-#define SWITCH_DEBOUNCE		3		// ms
-#define SWITCH_LONGPRESS	1000	// ms
-#define SWITCH_VERYLONGPRESS	3000 // ms
-#define NUM_SAMPLES			1024
-
-volatile switch_t ENCAsw, ENCBsw, ENCSELsw;
-volatile uint8_t ADC_Done = 0, ADC_Count = 0;
-volatile int8_t enccount = 0;
-volatile uint8_t Dirty = 0;
+volatile uint16_t ADC_Done = 0, ADC_Count = 0;
 
 volatile float voltages[8];
 volatile float ldr_voltage;
 
 uint16_t values[NUM_SAMPLES];
+
+volatile uint8_t Dirty = 0;
 uint16_t framecount;
 
 run_state RunState = WELCOME;
 uint32_t nextactiontick;
+
+volatile int8_t enccount;
 
 /* USER CODE END PV */
 
@@ -201,6 +191,11 @@ LT_ShowVoltages (void)
 	RunState = SHOW_VOLTAGES;
 }
 
+void LT_ShowClock (void)
+{
+	RunState = SHOWCLOCK;
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -231,14 +226,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 	HAL_Delay (100);
-	HAL_TIM_Base_Start (&htim3);
+	// HAL_TIM_Base_Start (&htim3);
 
 	if (__HAL_PWR_GET_FLAG(PWR_FLAG_WU))	// wakeup, controleer op lange druk
 	{
 		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU | PWR_FLAG_SB);
 
-		Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
-					&ENCSELsw);
+		Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 
 		while (ENCSELsw.state == ON)
 			;
@@ -249,11 +243,13 @@ int main(void)
 		}
 	}
 
+	if (hrtc.State == HAL_RTC_STATE_RESET)
+		MX_RTC_Init ();
+
 	SH1106_Init (&hspi1);
 
 	// overige periferie initializeren
 	MX_ADC1_Init ();
-	MX_RTC_Init ();
 	MX_USB_DEVICE_Init ();
 
 	//HAL_ADC_Start (&hadc1);
@@ -266,6 +262,8 @@ int main(void)
 
 	LT_ShowStartScreen ();
 	SH1106_PaintScreen ();
+
+	HAL_ADCEx_Calibration_Start (&hadc1);
 
 	HAL_Delay (2000);
 
@@ -289,74 +287,13 @@ int main(void)
 		switch (RunState)
 		{
 			case MENU:
-				if (enccount != 0)
-				{
-					UI_ScrollMenu (enccount);
-					enccount = 0;
-					UI_DrawMenu (NULL);
-					Dirty = 1;
-				}
-				if (ENCSELsw.state == ON && menuselected == 0)
-				{
-					// selectie gemaakt
-					UI_SelectMenu ();
-					menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
-				}
-				else if (ENCSELsw.state == OFF)
-				{
-					menuselected = 0;
-				}
+				func_menu ();
 				break;
 			case SHOW_VOLTAGES:
-				if (value < enccount)	// oplopend
-				{
-					memset (disp_buffer, 0, 80);
-					SH1106_DrawStringBold ("Rechtsom", 0, 0, NORMAL,
-											disp_buffer);
-					Dirty = 1;
-				}
-				else if (value > enccount)
-				{
-					memset (disp_buffer, 0, 80);
-					SH1106_DrawStringBold ("Linksom", 0, 0, NORMAL,
-											disp_buffer);
-					Dirty = 1;
-				}
-				value = enccount;
-
-				sprintf (text, "%i", enccount);
-				memset (disp_buffer + 90, 0, 42);
-				SH1106_DrawString (text, 90, 0, FAST, disp_buffer);
-
-				sprintf (text, "FPS: %i", framecount);
-				memset (disp_buffer + 206, 0, 58);
-				SH1106_DrawString (text, 74, 8, FAST, disp_buffer);
-
-				sprintf (text, "SPS: %i", ADC_Count);
-				memset (disp_buffer + 338, 0, 58);
-				SH1106_DrawString (text, 74, 16, FAST, disp_buffer);
-
-				for (i = 0; i < 4; i++)
-				{
-					sprintf (text, "%1.3f V", voltages[i]);
-					SH1106_DrawString (text, 0, i * 8 + 32, FAST, disp_buffer);
-				}
-
-				if (ENCSELsw.state == ON)	// encoder ingedrukt
-				{
-					memset (disp_buffer, 0, 80);
-					SH1106_DrawString ("Drukknop", 0, 0, NORMAL, disp_buffer);
-					Dirty = 1;
-				}
-				else if (ENCSELsw.state == VERYLONG_PRESS)
-				{
-					memset (disp_buffer, 0, 80);
-					SH1106_DrawString ("Nog langer!", 0, 0, NORMAL,
-										disp_buffer);
-					Dirty = 1;
-				}
+				func_showvoltages ();
 				break;
-
+			case SHOWCLOCK:
+				func_showclock ();
 			default:
 				break;
 		}
@@ -367,16 +304,11 @@ int main(void)
 			if (ENCSELsw.state == LONG_PRESS)
 			{
 				enccount = 0;
-				UI_DrawMenu (&LT_MainMenu);
+				UI_ShowMenu (&LT_MainMenu);
 				RunState = MENU;
 
 				Dirty = 1;
 			}
-		}
-
-		if (hadc1.DMA_Handle->State == HAL_DMA_STATE_READY)
-		{
-			HAL_ADC_Stop (&hadc1);
 		}
 
 		if (Dirty)
@@ -450,8 +382,6 @@ HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 	uint32_t value[2];
 	uint16_t i;
 
-	// HAL_ADC_Stop_DMA (hadc);
-
 	value[0] = 0;
 	value[1] = 0;
 	for (i = 0; i < NUM_SAMPLES; i += 2)
@@ -465,9 +395,6 @@ HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 		voltages[1] = voltages[0];
 
 	ADC_Done++;
-
-	// HAL_ADC_Start (&hadc1);
-	//HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
 }
 
 void

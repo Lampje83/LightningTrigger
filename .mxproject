@@ -1,6 +1,6 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/Beheerder/Projects/STM32/LightningTrigger/Inc
-SourcePath=C:/Users/Beheerder/Projects/STM32/LightningTrigger/Src
+HeaderPath=C:/Users/Erik/workspace/LightningTrigger/Inc
+SourcePath=C:/Users/Erik/workspace/LightningTrigger/Src
 SourceFiles=gpio.h;adc.h;dma.h;rtc.h;spi.h;usb_device.h;usbd_conf.h;usbd_desc.h;usbd_cdc_if.h;stm32f1xx_it.h;stm32f1xx_hal_conf.h;mxconstants.h;gpio.c;adc.c;dma.c;rtc.c;spi.c;usb_device.c;usbd_conf.c;usbd_desc.c;usbd_cdc_if.c;stm32f1xx_it.c;stm32f1xx_hal_msp.c;main.c;tim.h;tim.c;
 HeaderFiles=gpio.h;adc.h;dma.h;rtc.h;spi.h;usb_device.h;usbd_conf.h;usbd_desc.h;usbd_cdc_if.h;stm32f1xx_it.h;stm32f1xx_hal_conf.h;mxconstants.h;tim.h;
 
