@@ -6,6 +6,7 @@
  */
 
 #include "ui.h"
+#include "GUI.h"
 
 extern void LT_ShowVoltages (void);
 
@@ -33,13 +34,16 @@ const ui_menu	LT_MainMenu = {
 	}
 };
 
+extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
+
 const ui_screen LT_StartScreen = {
-	4,
-	(void *[4]){
-	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 67, 8, NORMAL, TOP },
-	(ui_textitem[1]) { TEXT, "Versie 2.0 alpha", 67, 20, FAST, TOP },
-	(ui_textitem[1]) { TEXT, "(c) 2017", 67, 32, FAST, TOP },
-	(ui_textitem[1]) { TEXT, "Erik van Beilen", 67, 44, FAST, TOP }
+	5,
+	(void *[]){
+	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 66, 0, NORMAL, TOP },
+	(ui_textitem[1]) { TEXT, "Versie 2.0 alpha", 81, 16, FAST, TOP },
+	(ui_textitem[1]) { TEXT, "(c) 2017", 81, 32, FAST, TOP },
+	(ui_textitem[1]) { TEXT, "Erik van Beilen", 81, 48, FAST, TOP },
+	(ui_bitmapitem[1]) { BITMAP, 0, 16, 32, 48, NORMAL, TOPLEFT, &bmBliksem.pData }
 	}
 };
 
@@ -107,10 +111,19 @@ void UI_DrawText (ui_textitem *text, uint8_t bold)
 	}
 }
 
+void UI_DrawBitmap (ui_bitmapitem *bitmap)
+{
+	SH1106_DrawBitmap (UI_XAlign (bitmap->x, bitmap->width, bitmap->align),
+					   UI_YAlign (bitmap->y, bitmap->height, bitmap->align),
+					   bitmap->width, bitmap->height, bitmap->mode, bitmap->data + 6);
+
+}
+
 void UI_DrawScreen (ui_screen *screen)
 {
 	uint8_t	i;		// item index
 	ui_textitem	*text;
+	ui_bitmapitem *bitmap;
 	ui_screenitemtype	*type;
 
 	for (i = 0; i < screen->length; i++)
@@ -127,7 +140,10 @@ void UI_DrawScreen (ui_screen *screen)
 				text = screen->items[i];
 				UI_DrawText (text, 1);
 				break;
-
+			case BITMAP:
+				bitmap = screen->items[i];
+				UI_DrawBitmap (bitmap);
+				break;
 			default:
 				break;
 		}

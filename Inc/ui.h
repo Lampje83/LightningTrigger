@@ -101,6 +101,7 @@ typedef struct
 	uint8_t				y;
 	uint8_t				width;
 	uint8_t				height;
+	drawmode			mode;
 	ui_align			align;
 	char				*data;
 } ui_bitmapitem;
