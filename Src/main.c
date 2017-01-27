@@ -36,6 +36,7 @@
 #include "dma.h"
 #include "rtc.h"
 #include "spi.h"
+#include "tim.h"
 #include "usb_device.h"
 #include "gpio.h"
 
@@ -51,12 +52,7 @@
 
 typedef enum
 {
-	OFF,
-	ON,
-	LONG_PRESS,
-	VERYLONG_PRESS,
-	RISING,
-	FALLING
+	OFF, ON, LONG_PRESS, VERYLONG_PRESS, RISING, FALLING
 } switch_state;
 
 typedef enum
@@ -75,9 +71,9 @@ typedef enum
 
 typedef struct
 {
-	switch_state	state;
-	uint16_t		locount;
-	uint16_t		hicount;
+	switch_state state;
+	uint16_t locount;
+	uint16_t hicount;
 } switch_t;
 
 #define SWITCH_DEBOUNCE		3		// ms
@@ -85,22 +81,21 @@ typedef struct
 #define SWITCH_VERYLONGPRESS	3000 // ms
 #define NUM_SAMPLES			1024
 
-volatile switch_t	ENCAsw, ENCBsw, ENCSELsw;
-volatile uint8_t	ADC_Done = 0, ADC_Count = 0;
-volatile int8_t		enccount = 0;
-volatile uint8_t	Dirty = 0;
+volatile switch_t ENCAsw, ENCBsw, ENCSELsw;
+volatile uint8_t ADC_Done = 0, ADC_Count = 0;
+volatile int8_t enccount = 0;
+volatile uint8_t Dirty = 0;
 
 volatile float voltages[8];
 volatile float ldr_voltage;
 
-uint32_t	values[NUM_SAMPLES];
-uint16_t	framecount;
+uint16_t values[NUM_SAMPLES];
+uint16_t framecount;
 
-run_state	RunState = WELCOME;
-uint32_t	nextactiontick;
+run_state RunState = WELCOME;
+uint32_t nextactiontick;
 
 /* USER CODE END PV */
-extern	ui_menu	*activemenu;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -108,23 +103,26 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-switch_state Test_Input	(uint8_t value, switch_t *input);
+switch_state
+Test_Input (uint8_t value, switch_t *input);
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 
-
 // inputs testen
-switch_state Test_Input	(uint8_t value, switch_t *input)
+switch_state
+Test_Input (uint8_t value, switch_t *input)
 {
 	if (value)
 	{
-		input->locount = 0; input->hicount++;
+		input->locount = 0;
+		input->hicount++;
 	}
 	else
 	{
-		input->hicount = 0; input->locount++;
+		input->hicount = 0;
+		input->locount++;
 	}
 
 	if (input->locount >= SWITCH_DEBOUNCE)
@@ -144,7 +142,7 @@ switch_state Test_Input	(uint8_t value, switch_t *input)
 			if (input->hicount >= SWITCH_VERYLONGPRESS)
 			{
 				input->state = VERYLONG_PRESS;
-				input->hicount = SWITCH_VERYLONGPRESS;	// zorgen dat teller niet overflowt en daardoor naar nul gaat
+				input->hicount = SWITCH_VERYLONGPRESS;// zorgen dat teller niet overflowt en daardoor naar nul gaat
 				return VERYLONG_PRESS;
 			}
 			else
@@ -167,19 +165,23 @@ switch_state Test_Input	(uint8_t value, switch_t *input)
 	return input->state;
 }
 
-void EnterDeepSleep (void)
+void
+EnterDeepSleep (void)
 {
-	uint32_t	i;
+	uint32_t i;
 
 	if (SH1106_HSPI != NULL)
 		// wacht totdat er geen data meer naar het scherm gaat
-		while (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_BUSY);
+		while (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_BUSY)
+			;
 
-	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
-	SH1106_WriteByte(0xAE);    /*display off*/
+	HAL_GPIO_WritePin (SH1106_DC, GPIO_PIN_RESET);
+	SH1106_WriteByte (0xAE); /*display off*/
 
-	while (Test_Input (HAL_GPIO_ReadPin(ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw) != OFF);
-	__HAL_PWR_CLEAR_FLAG (PWR_FLAG_WU | PWR_FLAG_SB);
+	while (Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
+						&ENCSELsw) != OFF)
+		;
+	__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU | PWR_FLAG_SB);
 	// Even wachten zodat de controller niet meteen weer ingeschakeld wordt
 	for (i = 0; i < 5000000; i++)
 	{
@@ -192,7 +194,8 @@ void EnterDeepSleep (void)
 	//HAL_PWR_EnterSTOPMode (PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFE);
 }
 
-void LT_ShowVoltages (void)
+void
+LT_ShowVoltages (void)
 {
 	SH1106_Clear ();
 	RunState = SHOW_VOLTAGES;
@@ -206,7 +209,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	char text[16];
 	int32_t value = 0;
-	uint8_t	i = 0;
+	uint8_t i = 0;
+	uint8_t menuselected = 0;
 
   /* USER CODE END 1 */
 
@@ -222,18 +226,22 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_SPI1_Init();
+  MX_TIM3_Init();
 
   /* USER CODE BEGIN 2 */
 
-  HAL_Delay (100);
+	HAL_Delay (100);
+	HAL_TIM_Base_Start (&htim3);
 
-  if (__HAL_PWR_GET_FLAG(PWR_FLAG_WU))	// wakeup, controleer op lange druk
+	if (__HAL_PWR_GET_FLAG(PWR_FLAG_WU))	// wakeup, controleer op lange druk
 	{
-		__HAL_PWR_CLEAR_FLAG (PWR_FLAG_WU | PWR_FLAG_SB);
+		__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU | PWR_FLAG_SB);
 
-		Test_Input (HAL_GPIO_ReadPin(ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
+		Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
+					&ENCSELsw);
 
-	  while (ENCSELsw.state == ON);
+		while (ENCSELsw.state == ON)
+			;
 
 		if (ENCSELsw.state != LONG_PRESS)
 		{
@@ -241,128 +249,144 @@ int main(void)
 		}
 	}
 
-  SH1106_Init (&hspi1);
+	SH1106_Init (&hspi1);
 
-  // overige periferie initializeren
-  MX_ADC1_Init();
-  MX_RTC_Init();
-  MX_USB_DEVICE_Init();
+	// overige periferie initializeren
+	MX_ADC1_Init ();
+	MX_RTC_Init ();
+	MX_USB_DEVICE_Init ();
 
-  //HAL_ADC_Start (&hadc1);
-  SH1106_SetBrightness(0);
+	//HAL_ADC_Start (&hadc1);
+	SH1106_SetBrightness (0);
 
-  HAL_PWR_DisableWakeUpPin (PWR_WAKEUP_PIN1);
+	HAL_PWR_DisableWakeUpPin (PWR_WAKEUP_PIN1);
 
-  // Dit doen, anders is de eerste regel garbage, om onduidelijke reden
-  SH1106_PaintScreen ();
+	// Dit doen, anders is de eerste regel garbage, om onduidelijke reden
+	SH1106_PaintScreen ();
 
-  LT_ShowStartScreen ();
-  SH1106_PaintScreen ();
+	LT_ShowStartScreen ();
+	SH1106_PaintScreen ();
 
-  HAL_Delay (2000);
+	HAL_Delay (2000);
 
-  UI_DrawMenu (&LT_MainMenu);
-  RunState = MENU;
+	UI_ShowMenu (&LT_MainMenu);
+	RunState = MENU;
+
+	HAL_ADC_Start (&hadc1);
+
+	HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
-  while (1)
-  {
+	while (1)
+	{
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	  switch (RunState)
-	  {
-	  case MENU:
-		  if (enccount != 0)
-		  {
-			  UI_ScrollMenu (enccount);
-			  enccount = 0;
-			  UI_DrawMenu (activemenu);
-			  Dirty = 1;
-		  }
-		  if (ENCSELsw.state == ON)
-		  {
-			  // selectie gemaakt
-			  UI_SelectMenu ();
-		  }
-		  break;
-	  case SHOW_VOLTAGES:
-		  if (value < enccount)	// oplopend
-		  {
-			  memset(disp_buffer, 0, 80);
-			  SH1106_DrawStringBold ("Rechtsom", 0, 0, NORMAL, disp_buffer);
-			  Dirty = 1;
-		  }
-		  else if (value > enccount)
-		  {
-			  memset(disp_buffer, 0, 80);
-			  SH1106_DrawStringBold ("Linksom", 0, 0, NORMAL, disp_buffer);
-			  Dirty = 1;
-		  }
-		  value = enccount;
+		switch (RunState)
+		{
+			case MENU:
+				if (enccount != 0)
+				{
+					UI_ScrollMenu (enccount);
+					enccount = 0;
+					UI_DrawMenu (NULL);
+					Dirty = 1;
+				}
+				if (ENCSELsw.state == ON && menuselected == 0)
+				{
+					// selectie gemaakt
+					UI_SelectMenu ();
+					menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
+				}
+				else if (ENCSELsw.state == OFF)
+				{
+					menuselected = 0;
+				}
+				break;
+			case SHOW_VOLTAGES:
+				if (value < enccount)	// oplopend
+				{
+					memset (disp_buffer, 0, 80);
+					SH1106_DrawStringBold ("Rechtsom", 0, 0, NORMAL,
+											disp_buffer);
+					Dirty = 1;
+				}
+				else if (value > enccount)
+				{
+					memset (disp_buffer, 0, 80);
+					SH1106_DrawStringBold ("Linksom", 0, 0, NORMAL,
+											disp_buffer);
+					Dirty = 1;
+				}
+				value = enccount;
 
-		  sprintf (text, "%i", enccount);
-		  memset(disp_buffer + 90, 0, 42);
-		  SH1106_DrawString (text, 90, 0, FAST, disp_buffer);
+				sprintf (text, "%i", enccount);
+				memset (disp_buffer + 90, 0, 42);
+				SH1106_DrawString (text, 90, 0, FAST, disp_buffer);
 
-		  sprintf (text, "FPS: %i", framecount);
-		  memset(disp_buffer + 206, 0, 58);
-		  SH1106_DrawString (text, 74, 8, FAST, disp_buffer);
+				sprintf (text, "FPS: %i", framecount);
+				memset (disp_buffer + 206, 0, 58);
+				SH1106_DrawString (text, 74, 8, FAST, disp_buffer);
 
-		  sprintf (text, "SPS: %i", ADC_Count);
-		  memset(disp_buffer + 338, 0, 58);
-		  SH1106_DrawString (text, 74, 16, FAST, disp_buffer);
+				sprintf (text, "SPS: %i", ADC_Count);
+				memset (disp_buffer + 338, 0, 58);
+				SH1106_DrawString (text, 74, 16, FAST, disp_buffer);
 
-		  for (i = 0; i < 4; i ++)
-		  {
-		    sprintf (text, "%1.3f V", voltages[i]);
-		    SH1106_DrawString (text, 0, i * 8 + 32, FAST, disp_buffer);
-		  }
+				for (i = 0; i < 4; i++)
+				{
+					sprintf (text, "%1.3f V", voltages[i]);
+					SH1106_DrawString (text, 0, i * 8 + 32, FAST, disp_buffer);
+				}
 
-		  if (ENCSELsw.state == ON)	// encoder ingedrukt
-		  {
-			  memset(disp_buffer, 0, 80);
-			  SH1106_DrawString ("Drukknop", 0, 0, NORMAL, disp_buffer);
-			  Dirty = 1;
-		  }
-		  else if (ENCSELsw.state == LONG_PRESS)
-		  {
-			  enccount = 0;
-			  UI_DrawMenu (&LT_MainMenu);
-			  RunState = MENU;
+				if (ENCSELsw.state == ON)	// encoder ingedrukt
+				{
+					memset (disp_buffer, 0, 80);
+					SH1106_DrawString ("Drukknop", 0, 0, NORMAL, disp_buffer);
+					Dirty = 1;
+				}
+				else if (ENCSELsw.state == VERYLONG_PRESS)
+				{
+					memset (disp_buffer, 0, 80);
+					SH1106_DrawString ("Nog langer!", 0, 0, NORMAL,
+										disp_buffer);
+					Dirty = 1;
+				}
+				break;
 
-			  Dirty = 1;
-		  }
-		  else if (ENCSELsw.state == VERYLONG_PRESS)
-		  {
-			  memset(disp_buffer, 0, 80);
-			  SH1106_DrawString ("Nog langer!", 0, 0, NORMAL, disp_buffer);
-			  Dirty = 1;
-		  }
-		  break;
+			default:
+				break;
+		}
 
-	  default:
-		  break;
-	  }
+		// Alleen als we niet al in een menu zitten, brengt een lange druk ons naar het menu
+		if (RunState != MENU)
+		{
+			if (ENCSELsw.state == LONG_PRESS)
+			{
+				enccount = 0;
+				UI_DrawMenu (&LT_MainMenu);
+				RunState = MENU;
 
-	  if (hadc1.DMA_Handle->State == HAL_DMA_STATE_READY)
-	  {
-		  HAL_ADC_Stop (&hadc1);
-	  }
+				Dirty = 1;
+			}
+		}
 
-	  if (Dirty)
-	  {
-		// memset (disp_buffer + 132*4, 0, 132*4);	// buffer wissen
-		SH1106_PaintScreen ();
-		Dirty = 0;
-	  }
+		if (hadc1.DMA_Handle->State == HAL_DMA_STATE_READY)
+		{
+			HAL_ADC_Stop (&hadc1);
+		}
 
-  }
+		if (Dirty)
+		{
+			// memset (disp_buffer + 132*4, 0, 132*4);	// buffer wissen
+			SH1106_PaintScreen ();
+			Dirty = 0;
+		}
+
+	}
   /* USER CODE END 3 */
 
 }
@@ -419,40 +443,43 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-void  HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+void
+HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 {
 	char text[16];
 	uint32_t value[2];
-	uint16_t	i;
+	uint16_t i;
 
-	HAL_ADC_Stop_DMA (hadc);
+	// HAL_ADC_Stop_DMA (hadc);
 
 	value[0] = 0;
 	value[1] = 0;
-	for (i = 0; i < NUM_SAMPLES; i +=2)
+	for (i = 0; i < NUM_SAMPLES; i += 2)
 	{
 		value[0] += values[i];
 		value[1] += values[i + 1];
 	}
 	voltages[0] = value[0] / (value[1] / 1.2);
 
-	if (voltages[0] > voltages[1]) voltages[1] = voltages[0];
+	if (voltages[0] > voltages[1])
+		voltages[1] = voltages[0];
 
 	ADC_Done++;
 
-	HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
+	// HAL_ADC_Start (&hadc1);
+	//HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
 }
 
-
-void HAL_SYSTICK_Callback(void)
+void
+HAL_SYSTICK_Callback (void)
 {
-	switch_state	a, b;
-	uint32_t	i;
+	switch_state a, b;
+	uint32_t i;
 
 	// Ingangen testen. Debouncen en controleren op lange druk
-	a = Test_Input (HAL_GPIO_ReadPin(ENC_A_GPIO_Port, ENC_A_Pin), &ENCAsw);
-	b = Test_Input (HAL_GPIO_ReadPin(ENC_B_GPIO_Port, ENC_B_Pin), &ENCBsw);
-	Test_Input (HAL_GPIO_ReadPin(ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
+	a = Test_Input (HAL_GPIO_ReadPin (ENC_A_GPIO_Port, ENC_A_Pin), &ENCAsw);
+	b = Test_Input (HAL_GPIO_ReadPin (ENC_B_GPIO_Port, ENC_B_Pin), &ENCBsw);
+	Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 
 	HAL_GPIO_WritePin (CAM_A_GPIO_Port, CAM_A_Pin, ENCSELsw.state > OFF);
 	HAL_GPIO_WritePin (CAM_B_GPIO_Port, CAM_B_Pin, ENCSELsw.state > ON);
@@ -475,12 +502,12 @@ void HAL_SYSTICK_Callback(void)
 		enccount--;
 	}
 
-	if ((HAL_GetTick() % 1000) == 0)
+	if ((HAL_GetTick () % 1000) == 0)
 	{
 		ADC_Count = ADC_Done;
 		ADC_Done = 0;
 		Dirty = 1;
-		framecount = SH1106_GetFrameCount();
+		framecount = SH1106_GetFrameCount ();
 	}
 }
 
@@ -494,10 +521,10 @@ void HAL_SYSTICK_Callback(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler */
-  /* User can add his own implementation to report the HAL error return state */
-  while(1) 
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	while (1)
+	{
+	}
   /* USER CODE END Error_Handler */ 
 }
 
@@ -513,8 +540,8 @@ void Error_Handler(void)
 void assert_failed(uint8_t* file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-    ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* User can add his own implementation to report the file name and line number,
+	 ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 
 }

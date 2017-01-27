@@ -19,12 +19,14 @@ ui_menuitem LT_MainMenuItems[5] = {
 		{ }
 };
 
+const ui_menu	LT_SettingsMenu;
+
 const ui_menu	LT_MainMenu = {
 	"Hoofdmenu",
 	8,
 	(ui_menuitem[]) {
 		{ "Modus" },
-		{ "Instellingen" },
+		{ "Instellingen", &UI_ShowMenu, NULL, &LT_SettingsMenu },
 		{ "Toon spanningen", &LT_ShowVoltages },
 		{ "Shutter delay test" },
 		{ "Toon klok" },
@@ -34,6 +36,18 @@ const ui_menu	LT_MainMenu = {
 	}
 };
 
+const ui_menu	LT_SettingsMenu = {
+		"Instellingen",
+		6,
+		(ui_menuitem[]) {
+			{ "Helderheid" },
+			{ "Beeld uit na ..." },
+			{ "Trigger uit na ..." },
+			{ "Wissel cameracontact" },
+			{ "Sluitertijd" },
+			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
+		}
+};
 extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 
 const ui_screen LT_StartScreen = {
@@ -46,6 +60,8 @@ const ui_screen LT_StartScreen = {
 	(ui_bitmapitem[1]) { BITMAP, 0, 16, 32, 48, NORMAL, TOPLEFT, &bmBliksem.pData }
 	}
 };
+
+extern volatile uint8_t Dirty;
 
 uint8_t	UI_XAlign (uint8_t x, uint8_t width, ui_align align)
 {
@@ -159,7 +175,7 @@ void UI_DrawMenu (ui_menu *menu)
 
 	SH1106_Clear ();
 
-	activemenu = menu;
+	if (!menu) menu = activemenu;
 
 	UI_DrawText ((ui_textitem[1]){ TEXT, menu->title, 66, 0, NORMAL, TOP }, 1);
 
@@ -182,6 +198,16 @@ void UI_DrawMenu (ui_menu *menu)
 
 		SH1106_DrawString (menu->items[i].name, 0, (i - firstitem) * 9 + 8, dm, disp_buffer);
 	}
+
+	Dirty = 1;
+}
+
+void UI_ShowMenu (ui_menu *menu)
+{
+    activemenu = menu;
+    selecteditem = 0;
+
+    UI_DrawMenu (menu);
 }
 
 void UI_ScrollMenu (int8_t steps)
@@ -202,7 +228,7 @@ void UI_ScrollMenu (int8_t steps)
 void UI_SelectMenu (void)
 {
 	if (activemenu->items[selecteditem].callback)
-		activemenu->items[selecteditem].callback ();
+	    activemenu->items[selecteditem].callback (activemenu->items[selecteditem].param);
 }
 
 void LT_ShowStartScreen (void)

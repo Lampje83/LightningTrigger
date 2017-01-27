@@ -1,7 +1,8 @@
 /**
   ******************************************************************************
-  * File Name          : mxconstants.h
-  * Description        : This file contains the common defines of the application
+  * File Name          : TIM.h
+  * Description        : This file provides code for the configuration
+  *                      of the TIM instances.
   ******************************************************************************
   *
   * COPYRIGHT(c) 2017 STMicroelectronics
@@ -31,59 +32,44 @@
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MXCONSTANT_H
-#define __MXCONSTANT_H
-  /* Includes ------------------------------------------------------------------*/
+#ifndef __tim_H
+#define __tim_H
+#ifdef __cplusplus
+ extern "C" {
+#endif
+
+/* Includes ------------------------------------------------------------------*/
+#include "stm32f1xx_hal.h"
 
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
 
-/* Private define ------------------------------------------------------------*/
+extern TIM_HandleTypeDef htim3;
 
-#define LED_Pin GPIO_PIN_13
-#define LED_GPIO_Port GPIOC
-#define ENC_SEL_Pin GPIO_PIN_0
-#define ENC_SEL_GPIO_Port GPIOA
-#define LDR_Pin GPIO_PIN_1
-#define LDR_GPIO_Port GPIOA
-#define BATV_Pin GPIO_PIN_2
-#define BATV_GPIO_Port GPIOA
-#define EXT_TRIG_Pin GPIO_PIN_3
-#define EXT_TRIG_GPIO_Port GPIOA
-#define DISP_NSS_Pin GPIO_PIN_4
-#define DISP_NSS_GPIO_Port GPIOA
-#define DISP_SCK_Pin GPIO_PIN_5
-#define DISP_SCK_GPIO_Port GPIOA
-#define DISP_DC_Pin GPIO_PIN_6
-#define DISP_DC_GPIO_Port GPIOA
-#define DISP_MOSI_Pin GPIO_PIN_7
-#define DISP_MOSI_GPIO_Port GPIOA
-#define DISP_RES_Pin GPIO_PIN_0
-#define DISP_RES_GPIO_Port GPIOB
-#define CHG_ACT_Pin GPIO_PIN_1
-#define CHG_ACT_GPIO_Port GPIOB
-#define CHG_DONE_Pin GPIO_PIN_2
-#define CHG_DONE_GPIO_Port GPIOB
-#define ENC_B_Pin GPIO_PIN_4
-#define ENC_B_GPIO_Port GPIOB
-#define ENC_A_Pin GPIO_PIN_5
-#define ENC_A_GPIO_Port GPIOB
-#define CAM_B_Pin GPIO_PIN_6
-#define CAM_B_GPIO_Port GPIOB
-#define CAM_A_Pin GPIO_PIN_7
-#define CAM_A_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-/**
-  * @}
-  */ 
+extern void Error_Handler(void);
+
+void MX_TIM3_Init(void);
+
+/* USER CODE BEGIN Prototypes */
+
+/* USER CODE END Prototypes */
+
+#ifdef __cplusplus
+}
+#endif
+#endif /*__ tim_H */
 
 /**
   * @}
-*/ 
+  */
 
-#endif /* __MXCONSTANT_H */
+/**
+  * @}
+  */
+
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

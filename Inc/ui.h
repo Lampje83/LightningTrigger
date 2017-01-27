@@ -17,8 +17,9 @@
 typedef struct
 {
 	char	name[20];
-	void	(*callback)(void);		// callback naar functie wanneer dit item geselecteerd wordt
+	void	(*callback)(void*);	// callback naar functie wanneer dit item geselecteerd wordt
 	char	**value;		// function callback naar waardebepaling
+	void	*param;			// parameter voor callback;
 } ui_menuitem;
 
 typedef struct
@@ -114,6 +115,7 @@ typedef	struct
 
 
 void UI_DrawMenu (ui_menu *menu);
+void UI_ShowMenu (ui_menu *menu);
 void UI_ScrollMenu (int8_t steps);
 void UI_SelectMenu (void);
 
