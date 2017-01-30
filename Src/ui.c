@@ -38,16 +38,17 @@ const ui_menu	LT_MainMenu = {
 };
 
 const ui_menu	LT_SettingsMenu = {
-		"Instellingen",
-		6,
-		(ui_menuitem[]) {
-			{ "Helderheid" },
-			{ "Beeld uit na ..." },
-			{ "Trigger uit na ..." },
-			{ "Wissel cameracontact" },
-			{ "Sluitertijd" },
-			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
-		}
+	"Instellingen",
+	7,
+	(ui_menuitem[]) {
+		{ "Helderheid" },
+		{ "Tijd en datum" },
+		{ "Beeld uit na ..." },
+		{ "Uitschakelen na ..." },
+		{ "Wissel cameracontact" },
+		{ "Sluitertijd" },
+		{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
+	}
 };
 extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 

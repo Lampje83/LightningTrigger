@@ -1,8 +1,7 @@
 /**
   ******************************************************************************
-  * File Name          : dma.h
-  * Description        : This file contains all the function prototypes for
-  *                      the dma.c file
+  * File Name          : main.h
+  * Description        : This file contains the common defines of the application
   ******************************************************************************
   *
   * Copyright (c) 2017 STMicroelectronics International N.V. 
@@ -42,42 +41,59 @@
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __dma_H
-#define __dma_H
-
-#ifdef __cplusplus
- extern "C" {
-#endif
-
-/* Includes ------------------------------------------------------------------*/
-#include "stm32f1xx_hal.h"
-#include "main.h"
-
-/* DMA memory to memory transfer handles -------------------------------------*/
-extern void Error_Handler(void);
+#ifndef __MAIN_H
+#define __MAIN_H
+  /* Includes ------------------------------------------------------------------*/
 
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
 
+/* Private define ------------------------------------------------------------*/
+
+#define LED_Pin GPIO_PIN_13
+#define LED_GPIO_Port GPIOC
+#define ENC_SEL_Pin GPIO_PIN_0
+#define ENC_SEL_GPIO_Port GPIOA
+#define LDR_Pin GPIO_PIN_1
+#define LDR_GPIO_Port GPIOA
+#define BATV_Pin GPIO_PIN_2
+#define BATV_GPIO_Port GPIOA
+#define EXT_TRIG_Pin GPIO_PIN_3
+#define EXT_TRIG_GPIO_Port GPIOA
+#define DISP_NSS_Pin GPIO_PIN_4
+#define DISP_NSS_GPIO_Port GPIOA
+#define DISP_SCK_Pin GPIO_PIN_5
+#define DISP_SCK_GPIO_Port GPIOA
+#define DISP_DC_Pin GPIO_PIN_6
+#define DISP_DC_GPIO_Port GPIOA
+#define DISP_MOSI_Pin GPIO_PIN_7
+#define DISP_MOSI_GPIO_Port GPIOA
+#define DISP_RES_Pin GPIO_PIN_0
+#define DISP_RES_GPIO_Port GPIOB
+#define CHG_ACT_Pin GPIO_PIN_1
+#define CHG_ACT_GPIO_Port GPIOB
+#define CHG_DONE_Pin GPIO_PIN_2
+#define CHG_DONE_GPIO_Port GPIOB
+#define ENC_B_Pin GPIO_PIN_4
+#define ENC_B_GPIO_Port GPIOB
+#define ENC_A_Pin GPIO_PIN_5
+#define ENC_A_GPIO_Port GPIOB
+#define CAM_B_Pin GPIO_PIN_6
+#define CAM_B_GPIO_Port GPIOB
+#define CAM_A_Pin GPIO_PIN_7
+#define CAM_A_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-void MX_DMA_Init(void);
-
-/* USER CODE BEGIN Prototypes */
-
-/* USER CODE END Prototypes */
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __dma_H */
+/**
+  * @}
+  */ 
 
 /**
   * @}
-  */
+*/ 
 
+#endif /* __MAIN_H */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

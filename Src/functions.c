@@ -111,3 +111,9 @@ void func_showclock (void)
 		Dirty = 1;
 
 }
+
+// Klok instellen
+void func_setclock (void)
+{
+
+}
