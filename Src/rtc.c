@@ -57,9 +57,9 @@ void MX_RTC_Init(void)
     Error_Handler();
   }
 
-  sTime.Hours = 0x1;
-  sTime.Minutes = 0x0;
-  sTime.Seconds = 0x0;
+  sTime.Hours = 0x12;
+  sTime.Minutes = 0x59;
+  sTime.Seconds = 0x59;
 
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
   {
