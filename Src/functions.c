@@ -91,27 +91,181 @@ void func_showvoltages ()
 	}
 }
 
+uint8_t RTC_IsLeapYear(uint16_t nYear)
+{
+  if((nYear % 4) != 0)
+  {
+    return 0;
+  }
+
+  if((nYear % 100) != 0)
+  {
+    return 1;
+  }
+
+  if((nYear % 400) == 0)
+  {
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 // Klok handler
 void func_showclock (void)
 {
 	char text[22];
 	RTC_TimeTypeDef		time;				// struct om tijd in op te slaan
 	RTC_DateTypeDef		date;				// struct om datum in op te slaan
+	static int8_t		editpos = 0;
+	static uint8_t		editmode = 0;
+	static switch_state		prevsw = OFF;
+	uint8_t						maxdate;			// laatste dag van de maand
+	drawmode					clr;
+	uint32_t					tickoffset;
+
 	SH1106_Clear ();
 
-	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BCD);
-	sprintf (text, "%02x-%02x-%4x", date.Date, date.Month, 0x2000 + date.Year);
+	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
+	sprintf (text, "%02u-%02u-%4u", date.Date, date.Month, 2000 + date.Year);
 	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 12, NORMAL, TOP }, 0);
 
-	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BCD);
-	sprintf (text, "%02x:%02x:%02x", time.Hours, time.Minutes, time.Seconds);
+	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
+	sprintf (text, "%02u:%02u:%02u", time.Hours, time.Minutes, time.Seconds);
 	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 40, NORMAL, TOP }, 0);
 
+	if (enccount != 0 && !editmode)
+	{
+		editpos = (editpos - enccount) % 6;
+		if (editpos < 0) editpos += 6;
+		enccount = 0;
+		Dirty = 1;
+	}
+
+	if (ENCSELsw.state == ON && prevsw == OFF)
+	{
+		editmode = 1 - editmode;
+	}
+
+	if (editmode && ((HAL_GetTick() - tickoffset) % 600) >= 300)
+	{
+		clr = NORMAL;
+	}
+	else
+	{
+		clr = XOR;
+	}
+
+	if (editmode)
+		if (((HAL_GetTick() - tickoffset) % 100) == 0)
+			Dirty = 1;
+
+	switch (editpos)
+	{
+		case 0:		// seconden
+			SH1106_FillBox (77, 39, 13, 9, clr);
+			break;
+		case 1:		// minuten
+			SH1106_FillBox (59, 39, 13, 9, clr);
+			break;
+		case 2:		// uren
+			SH1106_FillBox (41, 39, 13, 9, clr);
+			break;
+		case 3:		// dagen
+			SH1106_FillBox (35, 11, 13, 9, clr);
+			break;
+		case 4:		// maanden
+			SH1106_FillBox (53, 11, 13, 9, clr);
+			break;
+		case 5:		// jaren
+			SH1106_FillBox (71, 11, 25, 9, clr);
+			break;
+		default:
+			break;
+	}
+
+	if (enccount != 0 && editmode)
+	{
+		switch (editpos)
+		{
+			case 0:	// seconden
+				time.Seconds += enccount;
+				if (time.Seconds > 195) time.Seconds += 60;
+				if (time.Seconds > 59) time.Seconds -= 60;
+				break;
+			case 1:
+				time.Minutes += enccount;
+				if (time.Minutes > 195)	time.Minutes += 60;
+				if (time.Minutes > 59) time.Minutes += 60;
+				break;
+			case 2:
+				time.Hours += enccount;
+				if (time.Hours > 195)	time.Hours += 60;
+				if (time.Hours > 59) time.Hours += 60;
+				break;
+			case 3:
+				date.Date += enccount;
+
+				switch (date.Month)
+				{
+					case 2:
+						if (RTC_IsLeapYear(date.Year))
+							maxdate = 29;
+						else
+							maxdate = 28;
+						break;
+					case 4:
+					case 6:
+					case 9:
+					case 11:
+						maxdate = 30;
+						break;
+					default:
+						maxdate = 31;
+						break;
+				}
+
+				if (date.Date < 1 || date.Date > 224) date.Date += maxdate;
+				if (date.Date > maxdate) date.Date -= maxdate;
+				break;
+			case 4:
+				date.Month += enccount;
+				if (date.Month < 1 || date.Month > 224) date.Month += 12;
+				if (date.Month > 12) date.Month -= 12;
+				break;
+			case 5:
+				date.Year += enccount;
+				break;
+		}
+
+		if (editpos >= 3)
+			HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BIN);
+		else
+			HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
+
+		enccount = 0;
+		tickoffset = HAL_GetTick ();
+		Dirty = 1;
+	}
+
+	prevsw = ENCSELsw.state;
 	// Het uiteindelijke weergeven van het scherm gebeurt door interrupt van de RTC
 }
 
 // Klok instellen
 void func_setclock (void)
 {
+	char text[22];
+	RTC_TimeTypeDef		time;				// struct om tijd in op te slaan
+	RTC_DateTypeDef		date;				// struct om datum in op te slaan
+	SH1106_Clear ();
+
+	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
+	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
+
+	sprintf (text, "%02u-%02u-%4u", date.Date, date.Month, 0x2000 + date.Year);
+	sprintf (text, "%02u:%02u:%02u", time.Hours, time.Minutes, time.Seconds);
 
 }

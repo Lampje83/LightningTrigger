@@ -114,6 +114,9 @@ int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)
 	  case FAST:
 		disp_buffer[offset] = 1 << bitpos;
 		break;
+	  case XOR:
+		disp_buffer[offset] ^= 1 << bitpos;
+		break;
 	  default:
 		break;
 	}
@@ -124,13 +127,16 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 {
 	uint8_t mask;		// bewerkmasker voor buffer
 
-	if (width > 0)	// Bij 0 gaan we er vanuit dat de breedte niet opgegeven is
+	if (width > 0 && width < 8)	// Bij 0 gaan we er vanuit dat de breedte niet opgegeven is
 		mask = ((1 << width) - 1) << shift;
 	else
-		mask = 255;
+		mask = 255 << shift;
 
 	if (shift > 0)
+	{
 		value <<= shift;
+		mask = ((1 << width) - 1) << shift;
+	}
 	else if (shift < 0)
 	{
 		value >>= -shift;
@@ -140,10 +146,10 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 	switch (clr)
 	{
 		case NORMAL:		// OR met buffer
-			disp_buffer[index] |= value;
+			disp_buffer[index] |= value & mask;
 			break;
 		case INVERSE:		// value inverteren, OR met buffer
-			disp_buffer[index] |= (~value & mask);
+			disp_buffer[index] |= (~value) & mask;
 			break;
 		case REPLACE:		// buffer vervangen met value
 			disp_buffer[index] &= ~mask;
@@ -158,6 +164,8 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 		case INVERT:		// value inverteren, AND met buffer (voor witte achtergrond)
 			disp_buffer[index] &= ~value;
 			break;
+		case XOR:
+			disp_buffer[index] ^= value & mask;
 		default:
 			// niets doen
 			break;
@@ -221,11 +229,24 @@ int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8
 
 int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr)
 {
+
 	return 0;
 }
 
 int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr)
 {
+	uint8_t		xp, yp, shift;
+
+	shift = y & 7;
+	for (yp = 0; yp < height + (y & 7); yp += 8)
+	{
+		for (xp = x; xp < x + width; xp++)
+		{
+			SH1106_SetByte (xp + ((y + yp) >> 3) * XSIZE, 255, shift, clr, height + (y & 7) - yp);
+		}
+		shift = 0;
+	}
+
 	return 0;
 }
 
@@ -271,7 +292,17 @@ int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, draw
 				break;
 			}
 */
-			SH1106_SetByte (offset, writedata, -shift, clr, 8);
+			if (clr == FAST && (shift == 0 || yp == 0))
+			{
+				SH1106_SetByte (offset, writedata, -shift, clr, 8);
+			}
+			else
+			{
+				// Fast modus, maar onze vorige byte niet overschrijven
+				SH1106_SetByte (offset, writedata, -shift, REPLACE, 8);
+			}
+			if (shift)
+				SH1106_SetByte (offset - XSIZE, writedata, 8 - shift, clr, 8);
 		}
 	}
 	return 0;

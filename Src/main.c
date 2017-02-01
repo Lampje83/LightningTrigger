@@ -188,6 +188,8 @@ void EnterDeepSleep (void)
 		ENCAsw.state = ENCBsw.state;
 	}
 
+	HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
+
 	// Datum opslaan in backup registers
     HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, date.Date);
     HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, date.Month);
@@ -213,7 +215,8 @@ void LT_ShowClock (void)
 	Dirty = 1; // zorg dat scherm getekend wordt
 	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
 
-	HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI); // Stroom besparen
+//	HAL_PWR_DisableSleepOnExit ();
+//	HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI); // Stroom besparen
 }
 
 /* USER CODE END 0 */

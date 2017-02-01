@@ -28,7 +28,8 @@ typedef enum
 	REPLACE,	// Buffer negeren
 	FAST,		// Elke bufferbyte die geschreven wordt, compleet legen
 	REVERSE,	// Buffer negeren, geinverteerd
-	INVERT		// AND, geinverteerd
+	INVERT,		// AND, geinverteerd
+	XOR				// XOR met buffer
 } drawmode;
 
 int SH1106_Init (SPI_HandleTypeDef *spi);
