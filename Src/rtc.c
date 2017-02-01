@@ -64,10 +64,17 @@ void MX_RTC_Init_Without_Time (void)
 
   HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
 
+  // Controleer of er iets in het backupgeheugen staat
+  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == 0)
+	  // leeg, afbreken
+	  return;
+
   // Opgeslagen datum bij klok optellen
   date.Date += HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) - 1;
   date.Month +=  HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2) - 1;
   date.Year += HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
+
+  HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
 }
 
 /* USER CODE END 0 */

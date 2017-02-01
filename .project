@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
 	<name>LightningTrigger</name>
-	<comment />
+	<comment></comment>
 	<projects>
 	</projects>
 	<buildSpec>
@@ -24,11 +24,4 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 		<nature>fr.ac6.mcu.ide.core.MCUProjectNature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>Drivers/SH1106</name>
-			<type>2</type>
-			<location>$%7BPARENT-1-PROJECT_LOC%7D/Drivers/SH1106</location>
-		</link>
-	</linkedResources>
 </projectDescription>

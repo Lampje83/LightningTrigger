@@ -78,7 +78,7 @@ typedef enum
 	SHOWCLOCK
 } run_state;
 
-#define NUM_SAMPLES			128
+#define NUM_SAMPLES			192
 
 volatile uint16_t ADC_Done = 0, ADC_Count = 0;
 
@@ -175,8 +175,7 @@ void EnterDeepSleep (void)
 		while (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_BUSY)
 			;
 
-	HAL_GPIO_WritePin (SH1106_DC, GPIO_PIN_RESET);
-	SH1106_WriteByte (0xAE); /*display off*/
+	SH1106_TurnOff();
 
 	while (Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
 						&ENCSELsw) != OFF)
@@ -307,6 +306,7 @@ int main(void)
 				break;
 			case SHOWCLOCK:
 				func_showclock ();
+				break;
 			default:
 				break;
 		}
@@ -407,13 +407,15 @@ HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 
 	value[0] = 0;
 	value[1] = 0;
-	for (i = 0; i < NUM_SAMPLES; i += 2)
+	value[2] = 0;
+	for (i = 0; i < NUM_SAMPLES; i += 3)
 	{
 		value[0] += values[i];
 		value[1] += values[i + 1];
+		value[2] += values[i + 2];
 	}
 	voltages[0] = value[0] / (value[1] / 1.2);
-
+  voltages[2] = value[2] / (value[1] / 2.4); // spanningsdeler, factor 2
 	if (voltages[0] > voltages[1])
 		voltages[1] = voltages[0];
 
