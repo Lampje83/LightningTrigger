@@ -107,9 +107,7 @@ void func_showclock (void)
 	sprintf (text, "%02x:%02x:%02x", time.Hours, time.Minutes, time.Seconds);
 	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 40, NORMAL, TOP }, 0);
 
-	if (HAL_GetTick() % 1000 == 0)
-		Dirty = 1;
-
+	// Het uiteindelijke weergeven van het scherm gebeurt door interrupt van de RTC
 }
 
 // Klok instellen

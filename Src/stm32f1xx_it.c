@@ -36,7 +36,7 @@
 #include "stm32f1xx_it.h"
 
 /* USER CODE BEGIN 0 */
-#include "../../Drivers/SH1106/sh1106.h"
+#include "sh1106.h"
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -223,24 +223,12 @@ void DMA1_Channel1_IRQHandler(void)
 void DMA1_Channel3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
-	static pagenum = 0;
-  /* USER CODE END DMA1_Channel3_IRQn 0 */
+
+	/* USER CODE END DMA1_Channel3_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi1_tx);
   /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
 
-  if (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_READY)
-	  if (pagenum < 8)
-	  {
-			 pagenum++;
-			// Stel Command mode in
-			HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
-			SH1106_WriteByte (0xB0 + pagenum);
-
-			// Stel Data mode in
-			HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_SET);
-			HAL_SPI_Transmit_DMA (SH1106_HSPI, disp_buffer + pagenum * XSIZE, 132); // sizeof(disp_buffer)
-
-	  }
+  SH1106_SPIDMA_Callback ();
 
   /* USER CODE END DMA1_Channel3_IRQn 1 */
 }

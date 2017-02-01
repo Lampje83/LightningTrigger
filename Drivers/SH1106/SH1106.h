@@ -15,7 +15,9 @@
 #define SH1106_DC	DISP_DC_GPIO_Port, DISP_DC_Pin
 #define SH1106_RES	DISP_RES_GPIO_Port, DISP_RES_Pin
 
-uint8_t	disp_buffer[132 * 64 / 8];
+uint8_t	disp_buffer[XSIZE * YSIZE / 8];
+uint8_t spi_buffer[XSIZE * YSIZE / 8];
+
 SPI_HandleTypeDef *SH1106_HSPI;
 
 typedef enum
@@ -33,14 +35,17 @@ int SH1106_Init (SPI_HandleTypeDef *spi);
 void SH1106_SetBrightness(uint8_t value);
 int SH1106_WriteByte (uint8_t value);
 int SH1106_WriteData (uint8_t *data, uint8_t size);
-int SH1106_PaintScreen ();
 void SH1106_Clear (void);
 void SH1106_TurnOn (void);
 void SH1106_TurnOff (void);
 int SH1106_DrawString (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *buf);
 int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *buf);
-int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode border, drawmode fill);
+int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
+int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
 int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, char *data);
+
+void SH1106_SPIDMA_Callback (void);			// callback die aangeroepen moet worden als SPI klaar is met schrijven beeldpagina
+int SH1106_PaintScreen (void);
 
 uint16_t	SH1106_GetFrameCount();
 

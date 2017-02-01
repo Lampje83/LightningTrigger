@@ -9,6 +9,8 @@
 uint8_t Data[9];
 SPI_HandleTypeDef *SH1106_HSPI = NULL;
 
+static uint8_t pagenum = 0;
+
 int SH1106_Init (SPI_HandleTypeDef *spi)
 {
 	SH1106_HSPI = spi;
@@ -56,7 +58,7 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 
 void SH1106_Clear (void)
 {
-	memset(disp_buffer, 0, 132 * 8);
+	memset(disp_buffer, 0, XSIZE * 8);
 }
 
 void SH1106_TurnOn (void)
@@ -96,6 +98,74 @@ void SH1106_SetBrightness(uint8_t value)
 	}
 }
 
+int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)
+{
+	uint16_t	offset = (x % XSIZE) + (y >> 3) * XSIZE;
+	uint8_t		bitpos = y & 7;
+
+	switch (clr)
+	{
+	  case NORMAL:
+		disp_buffer[offset] |= 1 << bitpos;
+		break;
+	  case INVERT:
+		disp_buffer[offset] &= 255 - (1 << bitpos);
+		break;
+	  case FAST:
+		disp_buffer[offset] = 1 << bitpos;
+		break;
+	  default:
+		break;
+	}
+	return 0;
+}
+
+int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, uint8_t width)
+{
+	uint8_t mask;		// bewerkmasker voor buffer
+
+	if (width > 0)	// Bij 0 gaan we er vanuit dat de breedte niet opgegeven is
+		mask = ((1 << width) - 1) << shift;
+	else
+		mask = 255;
+
+	if (shift > 0)
+		value <<= shift;
+	else if (shift < 0)
+	{
+		value >>= -shift;
+		mask = ((1 << width) -1) >> (-shift);
+	}
+
+	switch (clr)
+	{
+		case NORMAL:		// OR met buffer
+			disp_buffer[index] |= value;
+			break;
+		case INVERSE:		// value inverteren, OR met buffer
+			disp_buffer[index] |= (~value & mask);
+			break;
+		case REPLACE:		// buffer vervangen met value
+			disp_buffer[index] &= ~mask;
+			disp_buffer[index] |= value;
+			break;
+		case FAST:			// buffer vervangen met value, ongeschreven bits negeren
+			disp_buffer[index] = value;
+			break;
+		case REVERSE:		// value inverteren, ongeschreven bits negeren
+			disp_buffer[index] = ~value;
+			break;
+		case INVERT:		// value inverteren, AND met buffer (voor witte achtergrond)
+			disp_buffer[index] &= ~value;
+			break;
+		default:
+			// niets doen
+			break;
+	}
+
+	return 0;
+}
+
 int SH1106_DrawChar (char data, uint8_t x, uint8_t y, drawmode clr, uint8_t pitch)
 {
 	uint16_t bufpos;
@@ -108,42 +178,13 @@ int SH1106_DrawChar (char data, uint8_t x, uint8_t y, drawmode clr, uint8_t pitc
 
 	for (n = 0; n < 5; n++)
 	{
-		switch (clr)
-		{
-			case NORMAL:
-				disp_buffer[bufpos + n] |= (ASCII[data - 0x20][n] << bitpos);
-				if (bitpos > 0)
-					disp_buffer[bufpos + n + XSIZE] |= (ASCII[data - 0x20][n] >> (8 - bitpos));
-				break;
-			case INVERSE:
-				disp_buffer[bufpos + n] |= ((255 ^ ASCII[data - 0x20][n]) << bitpos);
-				if (bitpos > 0)
-					disp_buffer[bufpos + n + XSIZE] |= ((255 ^ ASCII[data - 0x20][n]) >> (8 - bitpos));
-				break;
-			case REPLACE:
-				disp_buffer[bufpos + n] = (disp_buffer[bufpos + n] & (255 >> (8 - bitpos))) |
-																	 (ASCII[data - 0x20][n] << bitpos);
-				if (bitpos > 0)
-				{
-					disp_buffer[bufpos + n + XSIZE] |= (ASCII[data - 0x20][n] >> (8 - bitpos));
-					disp_buffer[bufpos + n] = (disp_buffer[bufpos + n] & (255 << bitpos)) |
-																		 (ASCII[data - 0x20][n] >> (8 - bitpos));
-				}
-				break;
-			case FAST:
-				disp_buffer[bufpos + n] = (ASCII[data - 0x20][n] << bitpos);
-				if (bitpos > 0)
-					disp_buffer[bufpos + n + XSIZE] = (ASCII[data - 0x20][n] >> (8 - bitpos));
-				break;
-			case INVERT:
-				disp_buffer[bufpos + n] &= ((255 ^ ASCII[data - 0x20][n]) << bitpos);
-				if (bitpos > 0)
-					disp_buffer[bufpos + n + XSIZE] &= ((255 ^ ASCII[data - 0x20][n]) >> (8 - bitpos));
-				break;
-		}
+		SH1106_SetByte (bufpos + n, ASCII[data - 0x20][n], bitpos, clr, 8);
+		if (bitpos > 0)
+			SH1106_SetByte (bufpos + n + XSIZE, ASCII[data - 0x20][n], bitpos - 8, clr, 8);
+
 	}
 
-	if (clr == INVERSE)
+	if (clr == INVERSE || clr == REVERSE)
 	{
 		for (n = 5; n < pitch; n++)
 		{
@@ -178,29 +219,12 @@ int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8
 	return 0;
 }
 
-int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)
+int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr)
 {
-	uint16_t	offset = (x % 132) + (y >> 3) * 132;
-	uint8_t		bitpos = y & 7;
-
-	switch (clr)
-	{
-	  case NORMAL:
-		disp_buffer[offset] |= 1 << bitpos;
-		break;
-	  case INVERT:
-		disp_buffer[offset] &= 255 - (1 << bitpos);
-		break;
-	  case FAST:
-		disp_buffer[offset] = 1 << bitpos;
-		break;
-	  default:
-		break;
-	}
 	return 0;
 }
 
-int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode border, drawmode fill)
+int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr)
 {
 	return 0;
 }
@@ -215,16 +239,24 @@ int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, draw
 
 	for (xp = 0, bitmapoffs = 0; xp < width; xp++)
 	{
-		for (yp = 0, offset = x + xp + ((y + height - 1) >> 3) * 132; yp < height; yp += 8, bitmapoffs++, offset -= 132)
+		for (yp = 0, offset = x + xp + ((y + height - 1) >> 3) * XSIZE; yp < height; yp += 8, bitmapoffs++, offset -= XSIZE)
 		{
 			writedata = data[bitmapoffs];
 
+/*
 			switch (clr)
 			{
+				case INVERSE:
+					writedata = ~writedata;
+					// continue;
+					//fallthrough
 			  case NORMAL:
 				  disp_buffer[offset] |= writedata >> shift;
 				  if (shift)
-					disp_buffer[offset - 132] |= writedata << (8 - shift);
+					disp_buffer[offset - XSIZE] |= writedata << (8 - shift);
+				  break;
+
+			  case NONE:
 				  break;
 
 			  default:
@@ -235,9 +267,11 @@ int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, draw
 				  disp_buffer[offset] |= writedata >> shift;
 
 				if (shift)
-				  disp_buffer[offset - 132] = writedata << (8 - shift);
+				  disp_buffer[offset - XSIZE] = writedata << (8 - shift);
 				break;
 			}
+*/
+			SH1106_SetByte (offset, writedata, -shift, clr, 8);
 		}
 	}
 	return 0;
@@ -262,23 +296,35 @@ uint16_t	SH1106_GetFrameCount()
 	return count;
 }
 
+void SH1106_SPIDMA_Callback (void)
+{
+
+  if (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_READY)
+	  if (pagenum < 8)
+	  {
+			// Stel Command mode in
+			HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
+			SH1106_WriteByte (0xB0 + pagenum);
+
+			// Stel Data mode in
+			HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_SET);
+			HAL_SPI_Transmit_DMA (SH1106_HSPI, spi_buffer + pagenum * XSIZE, XSIZE); // sizeof(disp_buffer)
+
+			pagenum++;
+	  }
+}
+
 int SH1106_PaintScreen ()
 {
-	uint8_t page;
+	uint8_t page = 0;
 
-	for (page = 0; page < 8; page++)
-	{
-		while (SH1106_HSPI->State != HAL_SPI_STATE_READY);
+	// wacht tot SPI periferie gereed is
+	while (SH1106_HSPI->State != HAL_SPI_STATE_READY);
 
-		// Stel Command mode in
-		HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
-		SH1106_WriteByte (0xB0 + page);
+	memcpy (spi_buffer, disp_buffer, sizeof disp_buffer);
+	pagenum = 0;
+	SH1106_SPIDMA_Callback (); // Pagina schrijffunctie aanroepen
 
-		// Stel Data mode in
-		HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_SET);
-		HAL_SPI_Transmit_DMA (SH1106_HSPI, disp_buffer + page * XSIZE, 132); // sizeof(disp_buffer)
-		//SH1106_WriteData (disp_buffer + page * XSIZE, XSIZE);
-	}
 	framecount++;
 
 	return 0;

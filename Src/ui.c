@@ -204,11 +204,16 @@ void UI_DrawMenu (ui_menu *menu)
 	Dirty = 1;
 }
 
+extern RTC_HandleTypeDef hrtc;
+
 void UI_ShowMenu (ui_menu *menu)
 {
     activemenu = menu;
     selecteditem = 0;
 
+  	HAL_RTCEx_DeactivateSecond(&hrtc);	// RTC interrupt uitschakelen
+
+  	UI_ScrollMenu (0);	// zorg ervoor dat selectie in beeld is
     UI_DrawMenu (menu);
 }
 

@@ -8,7 +8,7 @@
 #ifndef UI_H_
 #define UI_H_
 
-#include "../../Drivers/SH1106/sh1106.h"
+#include "sh1106.h"
 
 /* ALGEMENE DECLARES */
 

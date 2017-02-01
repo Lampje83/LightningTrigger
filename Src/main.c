@@ -202,11 +202,18 @@ void LT_ShowVoltages (void)
 {
 	SH1106_Clear ();
 	RunState = SHOW_VOLTAGES;
+
+	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
 }
 
 void LT_ShowClock (void)
 {
 	RunState = SHOWCLOCK;
+
+	Dirty = 1; // zorg dat scherm getekend wordt
+	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
+
+	HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI); // Stroom besparen
 }
 
 /* USER CODE END 0 */
@@ -262,15 +269,14 @@ int main(void)
 
 	// overige periferie initializeren
 	MX_ADC1_Init ();
+	HAL_ADC_Start (&hadc1);		// ADC alvast starten zodat calibratie nauwkeurig verloopt
+
 	MX_USB_DEVICE_Init ();
 
 	//HAL_ADC_Start (&hadc1);
 	SH1106_SetBrightness (0);
 
 	HAL_PWR_DisableWakeUpPin (PWR_WAKEUP_PIN1);
-
-	// Dit doen, anders is de eerste regel garbage, om onduidelijke reden
-	SH1106_PaintScreen ();
 
 	LT_ShowStartScreen ();
 	SH1106_PaintScreen ();
@@ -281,8 +287,6 @@ int main(void)
 
 	UI_ShowMenu (&LT_MainMenu);
 	RunState = MENU;
-
-	HAL_ADC_Start (&hadc1);
 
 	HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
 
@@ -398,8 +402,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-void
-HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
+void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 {
 	char text[16];
 	uint32_t value[2];
@@ -422,8 +425,7 @@ HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 	ADC_Done++;
 }
 
-void
-HAL_SYSTICK_Callback (void)
+void HAL_SYSTICK_Callback (void)
 {
 	switch_state a, b;
 	uint32_t i;
@@ -458,9 +460,21 @@ HAL_SYSTICK_Callback (void)
 	{
 		ADC_Count = ADC_Done;
 		ADC_Done = 0;
-		Dirty = 1;
+		// Dirty = 1;
 		framecount = SH1106_GetFrameCount ();
 	}
+}
+
+/**
+  * @brief  Second event callback.
+  * @param  hrtc: pointer to a RTC_HandleTypeDef structure that contains
+  *                the configuration information for RTC.
+  * @retval None
+  */
+void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
+{
+	// zorg ervoor dat scherm opnieuw getekend wordt
+	Dirty = 1;
 }
 
 /* USER CODE END 4 */
