@@ -75,6 +75,7 @@ typedef enum
 	REMOTE_CONTROL,
 	SHOW_VOLTAGES,
 	SHUTTERDELAY_COUNTER,
+	SET_BRIGHTNESS,
 	SHOWCLOCK
 } run_state;
 
@@ -219,6 +220,12 @@ void LT_ShowClock (void)
 //	HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI); // Stroom besparen
 }
 
+void LT_SetBrightness (void)
+{
+	RunState = SET_BRIGHTNESS;
+	Dirty = 1;
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -281,6 +288,8 @@ int main(void)
 
 	HAL_PWR_DisableWakeUpPin (PWR_WAKEUP_PIN1);
 
+	SH1106_TurnOn ();
+
 	LT_ShowStartScreen ();
 	SH1106_PaintScreen ();
 
@@ -307,6 +316,9 @@ int main(void)
 		{
 			case MENU:
 				func_menu ();
+				break;
+			case SET_BRIGHTNESS:
+				func_setbrightness ();
 				break;
 			case SHOW_VOLTAGES:
 				func_showvoltages ();

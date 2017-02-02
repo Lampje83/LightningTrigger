@@ -16,8 +16,8 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 	SH1106_HSPI = spi;
 
 	// Reset display
-	HAL_GPIO_WritePin(SH1106_RES, GPIO_PIN_SET);
-	HAL_Delay (20);
+	// HAL_GPIO_WritePin(SH1106_RES, GPIO_PIN_SET);
+	// HAL_Delay (20);
 	HAL_GPIO_WritePin(SH1106_RES, GPIO_PIN_RESET);
 	HAL_Delay (1);
 	HAL_GPIO_WritePin(SH1106_RES, GPIO_PIN_SET);
@@ -26,19 +26,19 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 	// Stel Command mode in
 	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
 
-	SH1106_WriteByte(0xAE);    /*display off*/
+	// SH1106_WriteByte(0xAE);    /*display off*/
 	SH1106_WriteByte(0x02);    /*set lower column address*/
 	SH1106_WriteByte(0x10);    /*set higher column address*/
 	SH1106_WriteByte(0x40);    /*set display start line*/
-	SH1106_WriteByte(0xB0);    /*set page address*/
+	//  SH1106_WriteByte(0xB0);    /*set page address*/
 	SH1106_WriteByte(0xA1);    /*set segment remap*/
-	//SH1106_WriteByte(0xA5);    /*entire display ON*/
+	// SH1106_WriteByte(0xA5);    /*entire display ON*/
 	SH1106_WriteByte(0xA6);    /*normal / reverse*/
 	SH1106_WriteByte(0xA8);    /*multiplex ratio*/
 	SH1106_WriteByte(0x3F);    /*duty = 1/32*/
 	SH1106_WriteByte(0xAD);    /*set charge pump enable*/
 	SH1106_WriteByte(0x8B);     /*external VCC   */
-	SH1106_WriteByte(0x33);    /*0X30---0X33  set VPP   9V liangdu!!!!*/
+	SH1106_WriteByte(0x32);    /*0X30---0X33  set VPP   9V liangdu!!!!*/
 	SH1106_WriteByte(0xC8);    /*Com scan direction*/
 	SH1106_WriteByte(0xD3);    /*set display offset*/
 	SH1106_WriteByte(0x00);   /*   0x20  */
@@ -47,9 +47,11 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 	SH1106_WriteByte(0xD9);    /*set pre-charge period*/
 	SH1106_WriteByte(0x1F);    /*0x22*/
 	SH1106_WriteByte(0xDA);    /*set COM pins*/
-	SH1106_WriteByte(0x00);    // 0x12
-
+	SH1106_WriteByte(0x12);    // 0x12
+	SH1106_WriteByte(0xDB);		 // set VCOMD voltage
+	SH1106_WriteByte(0x10);		 // 0x35
 	SH1106_SetBrightness (0x80);
+	// SH1106_TurnOn();
 
 	// Stel Data mode in
 	// HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_SET);
@@ -84,7 +86,7 @@ void SH1106_SetBrightness(uint8_t value)
 
 	// Stel Command mode in
 	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
-
+/*
 	SH1106_WriteByte(0x81);    		// contrast control
 	SH1106_WriteByte(bright);    	// 128
 
@@ -94,8 +96,14 @@ void SH1106_SetBrightness(uint8_t value)
 //		SH1106_WriteByte(0xDB);    		// set vcomh
 //		SH1106_WriteByte(vcomh); 	// 0x40
 		SH1106_WriteByte(0x30 + (value >> 6));
-		SH1106_WriteByte(0xAF);    /*display ON*/
+		SH1106_WriteByte(0xAF);    // display ON
 	}
+*/
+	SH1106_WriteByte (0x30 + (value >> 6));	// DC voltage instellen
+	SH1106_WriteByte (0x81);
+	SH1106_WriteByte (value * 1.375 - (value >> 6) * 32);
+
+
 }
 
 int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)

@@ -13,6 +13,20 @@
 
 static uint8_t	menuselected = 0;			// bijhouden of drukknop losgelaten is
 
+static uint8_t	brightness = 0;
+static uint8_t	vcomdeselect = 0;
+static uint8_t	predischarge = 0x22;
+static uint8_t	dcvoltage = 3;
+
+char *func_getbrightness (void)
+{
+	static char	text[5];
+
+	sprintf (text, "%u%%", (uint8_t)(brightness / 2.55));
+
+	return text;
+}
+
 // Menu handler
 void func_menu ()
 {
@@ -27,6 +41,32 @@ void func_menu ()
 	{
 		// selectie gemaakt
 		UI_SelectMenu ();
+		menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
+	}
+	else if (ENCSELsw.state == OFF)
+	{
+		menuselected = 0;
+	}
+}
+
+extern RunState;
+extern ui_menu LT_SettingsMenu;
+
+void func_setbrightness ()
+{
+	if (enccount != 0)
+	{
+		brightness += enccount;
+		enccount = 0;
+		SH1106_SetBrightness (brightness);
+		UI_DrawMenu (&LT_SettingsMenu);
+		Dirty = 1;
+	}
+
+	if (ENCSELsw.state == ON && menuselected == 0)
+	{
+		// selectie gemaakt, terug naar menu
+		RunState = 2;
 		menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
 	}
 	else if (ENCSELsw.state == OFF)
@@ -124,17 +164,21 @@ void func_showclock (void)
 	static switch_state		prevsw = OFF;
 	uint8_t						maxdate;			// laatste dag van de maand
 	drawmode					clr;
-	uint32_t					tickoffset;
+	static uint32_t					tickoffset;
 
 	SH1106_Clear ();
 
+	// TODO: Ervoor zorgen dat de selector pas zichtbaar is als er aan de knop gedraaid wordt.
+	// Ook de selector na bepaalde tijd weer laten verdwijnen
+
+	UI_DrawText ((ui_textitem[]) { TEXT, "Klok", 66, 0, NORMAL, TOP }, 1);
 	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
 	sprintf (text, "%02u-%02u-%4u", date.Date, date.Month, 2000 + date.Year);
-	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 12, NORMAL, TOP }, 0);
+	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 16, NORMAL, TOP }, 0);
 
 	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
 	sprintf (text, "%02u:%02u:%02u", time.Hours, time.Minutes, time.Seconds);
-	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 40, NORMAL, TOP }, 0);
+	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 44, NORMAL, TOP }, 0);
 
 	if (enccount != 0 && !editmode)
 	{
@@ -165,22 +209,22 @@ void func_showclock (void)
 	switch (editpos)
 	{
 		case 0:		// seconden
-			SH1106_FillBox (77, 39, 13, 9, clr);
+			SH1106_FillBox (77, 43, 13, 9, clr);
 			break;
 		case 1:		// minuten
-			SH1106_FillBox (59, 39, 13, 9, clr);
+			SH1106_FillBox (59, 43, 13, 9, clr);
 			break;
 		case 2:		// uren
-			SH1106_FillBox (41, 39, 13, 9, clr);
+			SH1106_FillBox (41, 43, 13, 9, clr);
 			break;
 		case 3:		// dagen
-			SH1106_FillBox (35, 11, 13, 9, clr);
+			SH1106_FillBox (35, 15, 13, 9, clr);
 			break;
 		case 4:		// maanden
-			SH1106_FillBox (53, 11, 13, 9, clr);
+			SH1106_FillBox (53, 15, 13, 9, clr);
 			break;
 		case 5:		// jaren
-			SH1106_FillBox (71, 11, 25, 9, clr);
+			SH1106_FillBox (71, 15, 25, 9, clr);
 			break;
 		default:
 			break;
@@ -198,12 +242,12 @@ void func_showclock (void)
 			case 1:
 				time.Minutes += enccount;
 				if (time.Minutes > 195)	time.Minutes += 60;
-				if (time.Minutes > 59) time.Minutes += 60;
+				if (time.Minutes > 59) time.Minutes -= 60;
 				break;
 			case 2:
 				time.Hours += enccount;
-				if (time.Hours > 195)	time.Hours += 60;
-				if (time.Hours > 59) time.Hours += 60;
+				if (time.Hours > 195)	time.Hours += 24;
+				if (time.Hours > 23) time.Hours -= 24;
 				break;
 			case 3:
 				date.Date += enccount;

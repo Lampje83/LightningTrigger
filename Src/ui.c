@@ -10,6 +10,7 @@
 
 extern void LT_ShowVoltages (void);
 extern void LT_ShowClock (void);
+extern void LT_SetBrightness (void);
 
 uint8_t		menupos = 0;		// Eerste menuitem in beeld
 uint8_t		selecteditem = 0;	// Geselecteerd item
@@ -20,36 +21,70 @@ ui_menuitem LT_MainMenuItems[5] = {
 		{ }
 };
 
+const ui_menu	LT_MainMenu;
+
+const ui_menu LT_DebugMenu = {
+		"Diagnose",
+		4,
+		(ui_menuitem[]) {
+			{ "Shutter delay test" },
+			{ "Toon spanningen", &LT_ShowVoltages },
+			{ "Toon klokfrequentie" },
+			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
+		}
+};
+
 const ui_menu	LT_SettingsMenu;
+
+const ui_menu LT_CameraMenu = {
+		"Camera",
+		3,
+		(ui_menuitem[]) {
+			{ "Focus/Sluiter" },
+			{ "Sluitertijd" },
+			{ "Terug", &UI_ShowMenu, NULL, &LT_SettingsMenu }
+		}
+};
+
+extern uint8_t	brightness;
+
+const ui_menu	LT_SettingsMenu = {
+	"Instellingen",
+	6,
+	(ui_menuitem[]) {
+		{ "Helderheid", &LT_SetBrightness, &func_getbrightness, NULL },
+		{ "Tijd en datum", &LT_ShowClock },
+		{ "Beeld uit na ..." },
+		{ "Uitschakelen na ..." },
+		{ "Camera", &UI_ShowMenu, NULL, &LT_CameraMenu },
+		{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
+	}
+};
+
+const ui_menu LT_ModeMenu = {
+		"Modus",
+		6,
+		(ui_menuitem[]) {
+			{ "Bliksem" },
+			{ "Timelapse" },
+			{ "Tijdstip" },
+			{ "Afstandsbediening" },
+			{ "Ext. trigger" },
+			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
+		}
+};
 
 const ui_menu	LT_MainMenu = {
 	"Hoofdmenu",
-	8,
+	4,
 	(ui_menuitem[]) {
-		{ "Modus" },
+		{ "Modus", &UI_ShowMenu, NULL, &LT_ModeMenu },
 		{ "Instellingen", &UI_ShowMenu, NULL, &LT_SettingsMenu },
-		{ "Toon spanningen", &LT_ShowVoltages },
-		{ "Shutter delay test" },
-		{ "Toon klok", &LT_ShowClock },
-		{ "Toon klokfrequentie" },
-		{ "Overige informatie" },
+		{ "Diagnose", &UI_ShowMenu, NULL, &LT_DebugMenu },
 		{ "Uitschakelen", &EnterDeepSleep }
 	}
 };
 
-const ui_menu	LT_SettingsMenu = {
-	"Instellingen",
-	7,
-	(ui_menuitem[]) {
-		{ "Helderheid" },
-		{ "Tijd en datum" },
-		{ "Beeld uit na ..." },
-		{ "Uitschakelen na ..." },
-		{ "Wissel cameracontact" },
-		{ "Sluitertijd" },
-		{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
-	}
-};
 extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 
 const ui_screen LT_StartScreen = {
@@ -173,7 +208,8 @@ void UI_DrawMenu (ui_menu *menu)
 	uint8_t		i;
 	uint8_t		firstitem, lastitem;
 	drawmode	dm;
-	char		filltext[22];
+	char		filltext[21];
+	char		*vartext;
 
 	SH1106_Clear ();
 
@@ -183,22 +219,35 @@ void UI_DrawMenu (ui_menu *menu)
 
 	firstitem = menupos;
 	lastitem = menu->itemcount;
+
+	// niet meer dan 6 items in menu weergeven
 	if (lastitem - firstitem > 6)
 		lastitem = firstitem + 6;
 
+
 	for (i = firstitem; i < lastitem; i++)
 	{
+		strcpy (filltext, menu->items[i].name);
+
+		if (menu->items[i].value)	// menuitem heeft callback om waarde weer te geven
+		{
+			filltext[strlen(filltext) + 1] = 0x0;	// spatie toevoegen
+			filltext[strlen(filltext)] = 0x20;	// spatie toevoegen
+			// strcpy (vartext, menu->items[i].value());
+			vartext = menu->items[i].value();
+			strcpy (filltext + strlen(filltext), vartext);
+		}
 		if (selecteditem == i)
 		{
 			dm = INVERSE;
-			memset (filltext, 0x20, 22 - strlen(menu->items[i].name));
-			filltext[22 - strlen(menu->items[i].name)] = 0x0;
-			SH1106_DrawString (filltext, strlen(menu->items[i].name) * 6, (i - firstitem) * 9 + 8, dm, disp_buffer);
+			memset (filltext + strlen(filltext), 0x20, 21 - strlen(filltext));
+			filltext[21] = 0x0;
+			//SH1106_DrawString (filltext, strlen(filltext) * 6, (i - firstitem) * 9 + 8, dm, disp_buffer);
 		}
 		else
 			dm = NORMAL;
 
-		SH1106_DrawString (menu->items[i].name, 0, (i - firstitem) * 9 + 8, dm, disp_buffer);
+		SH1106_DrawString (filltext, 0, (i - firstitem) * 9 + 8, dm, disp_buffer);
 	}
 
 	Dirty = 1;

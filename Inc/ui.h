@@ -9,6 +9,8 @@
 #define UI_H_
 
 #include "sh1106.h"
+#include "string.h"
+#include "functions.h"
 
 /* ALGEMENE DECLARES */
 
@@ -18,7 +20,7 @@ typedef struct
 {
 	char	name[20];
 	void	(*callback)(void*);	// callback naar functie wanneer dit item geselecteerd wordt
-	char	**value;		// function callback naar waardebepaling
+	char	*(*value)(void);		// function callback naar waardebepaling
 	void	*param;			// parameter voor callback;
 } ui_menuitem;
 

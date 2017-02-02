@@ -16,6 +16,8 @@ void func_menu (void);						// subroutine voor menu afhandeling
 void func_showvoltages (void);		// subroutine om spanningen af te lezen
 void func_showclock (void);				// subroutine om klok weer te geven
 
+char *func_getbrightness (void);	// functie om ingestelde helderheid in tekst om te zetten
+
 extern volatile uint8_t Dirty;
 extern volatile uint16_t ADC_Done, ADC_Count;
 
