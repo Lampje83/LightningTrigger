@@ -70,9 +70,9 @@ void MX_RTC_Init_Without_Time (void)
 	  return;
 
   // Opgeslagen datum bij klok optellen
-  date.Date += HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) - 1;
-  date.Month +=  HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2) - 1;
-  date.Year += HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
+  date.Date += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) & 31) - 1;
+  date.Month += ((HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 5) & 15) - 1;
+  date.Year += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3) >> 9);
 
   HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
 }

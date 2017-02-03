@@ -10,12 +10,19 @@
 
 typedef enum
 {
-	OFF, ON, LONG_PRESS, VERYLONG_PRESS, RISING, FALLING
+	SW_NONE,
+	SW_OFF,
+	SW_ON,
+	SW_LONG_PRESS,
+	SW_VERYLONG_PRESS,
+	SW_RISING,
+	SW_FALLING
 } switch_state;
 
 typedef struct
 {
 	switch_state state;
+	switch_state prevstate;
 	uint16_t locount;
 	uint16_t hicount;
 } switch_t;
@@ -26,5 +33,9 @@ typedef struct
 
 volatile switch_t ENCAsw, ENCBsw, ENCSELsw;
 extern volatile int8_t enccount;
+
+switch_state Test_Input (uint8_t value, switch_t *input);
+switch_state Input_PeekEvent (switch_t *input);
+switch_state Input_GetEvent (switch_t *input);
 
 #endif /* INPUT_H_ */

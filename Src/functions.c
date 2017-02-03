@@ -37,15 +37,11 @@ void func_menu ()
 		UI_DrawMenu (NULL);
 		Dirty = 1;
 	}
-	if (ENCSELsw.state == ON && menuselected == 0)
+
+	if (Input_GetEvent(&ENCSELsw) == SW_ON)
 	{
 		// selectie gemaakt
 		UI_SelectMenu ();
-		menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
-	}
-	else if (ENCSELsw.state == OFF)
-	{
-		menuselected = 0;
 	}
 }
 
@@ -63,16 +59,9 @@ void func_setbrightness ()
 		Dirty = 1;
 	}
 
-	if (ENCSELsw.state == ON && menuselected == 0)
-	{
+	if (Input_GetEvent(&ENCSELsw) == SW_ON)
 		// selectie gemaakt, terug naar menu
 		RunState = 2;
-		menuselected = 1;	// schakel vlag in zodat er opnieuw gedrukt moet worden voor een volgend menu
-	}
-	else if (ENCSELsw.state == OFF)
-	{
-		menuselected = 0;
-	}
 }
 
 // Spanningen handler
@@ -116,13 +105,15 @@ void func_showvoltages ()
 		SH1106_DrawString (text, 0, i * 8 + 32, FAST, disp_buffer);
 	}
 
-	if (ENCSELsw.state == ON)	// encoder ingedrukt
+	switch_state encstate = Input_GetEvent(&ENCSELsw);
+
+	if (encstate == SW_ON)	// encoder ingedrukt
 	{
 		memset (disp_buffer, 0, 80);
 		SH1106_DrawString ("Drukknop", 0, 0, NORMAL, disp_buffer);
 		Dirty = 1;
 	}
-	else if (ENCSELsw.state == VERYLONG_PRESS)
+	else if (encstate == SW_VERYLONG_PRESS)
 	{
 		memset (disp_buffer, 0, 80);
 		SH1106_DrawString ("Nog langer!", 0, 0, NORMAL,
@@ -161,7 +152,6 @@ void func_showclock (void)
 	RTC_DateTypeDef		date;				// struct om datum in op te slaan
 	static int8_t		editpos = 0;
 	static uint8_t		editmode = 0;
-	static switch_state		prevsw = OFF;
 	uint8_t						maxdate;			// laatste dag van de maand
 	drawmode					clr;
 	static uint32_t					tickoffset;
@@ -188,10 +178,8 @@ void func_showclock (void)
 		Dirty = 1;
 	}
 
-	if (ENCSELsw.state == ON && prevsw == OFF)
-	{
+	if (Input_GetEvent(&ENCSELsw) == SW_ON)
 		editmode = 1 - editmode;
-	}
 
 	if (editmode && ((HAL_GetTick() - tickoffset) % 600) >= 300)
 	{
@@ -294,7 +282,6 @@ void func_showclock (void)
 		Dirty = 1;
 	}
 
-	prevsw = ENCSELsw.state;
 	// Het uiteindelijke weergeven van het scherm gebeurt door interrupt van de RTC
 }
 

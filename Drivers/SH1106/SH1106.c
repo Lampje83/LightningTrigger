@@ -9,7 +9,7 @@
 uint8_t Data[9];
 SPI_HandleTypeDef *SH1106_HSPI = NULL;
 
-static uint8_t pagenum = 0;
+static uint8_t pagenum = 255;
 
 int SH1106_Init (SPI_HandleTypeDef *spi)
 {
@@ -77,28 +77,18 @@ void SH1106_TurnOff (void)
 
 void SH1106_SetBrightness(uint8_t value)
 {
-	static uint8_t vcomh;
-	uint8_t volt = value >> 6;
-	uint8_t bright = value & 0x3F;
-
-	bright ^= (volt & 2) << 5;
-	bright ^= (volt & 1) << 5;
+	uint32_t	tick;
+	// afbreken indien
+	if (SH1106_Busy())
+	{
+		tick = HAL_GetTick ();
+		while (SH1106_Busy() && ((HAL_GetTick() - tick) < 10));
+		if (SH1106_Busy())
+			return;
+	}
 
 	// Stel Command mode in
 	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
-/*
-	SH1106_WriteByte(0x81);    		// contrast control
-	SH1106_WriteByte(bright);    	// 128
-
-	if (vcomh != (value >> 3))
-	{
-		vcomh = value >> 3;
-//		SH1106_WriteByte(0xDB);    		// set vcomh
-//		SH1106_WriteByte(vcomh); 	// 0x40
-		SH1106_WriteByte(0x30 + (value >> 6));
-		SH1106_WriteByte(0xAF);    // display ON
-	}
-*/
 	SH1106_WriteByte (0x30 + (value >> 6));	// DC voltage instellen
 	SH1106_WriteByte (0x81);
 	SH1106_WriteByte (value * 1.375 - (value >> 6) * 32);
@@ -339,6 +329,7 @@ void SH1106_SPIDMA_Callback (void)
 {
 
   if (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_READY)
+  {
 	  if (pagenum < 8)
 	  {
 			// Stel Command mode in
@@ -351,20 +342,29 @@ void SH1106_SPIDMA_Callback (void)
 
 			pagenum++;
 	  }
+	  else
+	  {
+	  	pagenum = 255;
+	  }
+  }
 }
 
 int SH1106_PaintScreen ()
 {
-	uint8_t page = 0;
+	memcpy (spi_buffer, disp_buffer, sizeof disp_buffer);
 
 	// wacht tot SPI periferie gereed is
 	while (SH1106_HSPI->State != HAL_SPI_STATE_READY);
 
-	memcpy (spi_buffer, disp_buffer, sizeof disp_buffer);
 	pagenum = 0;
 	SH1106_SPIDMA_Callback (); // Pagina schrijffunctie aanroepen
 
 	framecount++;
 
 	return 0;
+}
+
+uint8_t SH1106_Busy ()
+{
+	return (pagenum != 255);
 }

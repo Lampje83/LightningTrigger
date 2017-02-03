@@ -49,6 +49,7 @@ void SH1106_SPIDMA_Callback (void);			// callback die aangeroepen moet worden al
 int SH1106_PaintScreen (void);
 
 uint16_t	SH1106_GetFrameCount();
+uint8_t SH1106_Busy ();
 
 // This table contains the hex values that represent pixels
 // for a font that is 5 pixels wide and 8 pixels high

@@ -93,6 +93,7 @@ uint16_t framecount;
 
 run_state RunState = WELCOME;
 uint32_t nextactiontick;
+volatile uint32_t lastinputtick;
 
 volatile int8_t enccount;
 
@@ -104,16 +105,13 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-switch_state
-Test_Input (uint8_t value, switch_t *input);
 
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
 
 // inputs testen
-switch_state
-Test_Input (uint8_t value, switch_t *input)
+switch_state Test_Input (uint8_t value, switch_t *input)
 {
 	if (value)
 	{
@@ -128,13 +126,13 @@ Test_Input (uint8_t value, switch_t *input)
 
 	if (input->locount >= SWITCH_DEBOUNCE)
 	{
-		input->state = OFF;
+		input->state = SW_OFF;
 		if (input->locount > SWITCH_VERYLONGPRESS)
 			input->locount = SWITCH_DEBOUNCE;   // niet door nul laten gaan
 
 		if (input->locount == SWITCH_DEBOUNCE)
 			// dalende flank
-			return FALLING;
+			return SW_FALLING;
 	}
 	else if (input->hicount >= SWITCH_DEBOUNCE)
 	{
@@ -142,28 +140,45 @@ Test_Input (uint8_t value, switch_t *input)
 		{
 			if (input->hicount >= SWITCH_VERYLONGPRESS)
 			{
-				input->state = VERYLONG_PRESS;
+				input->state = SW_VERYLONG_PRESS;
 				input->hicount = SWITCH_VERYLONGPRESS;// zorgen dat teller niet overflowt en daardoor naar nul gaat
-				return VERYLONG_PRESS;
+				return SW_VERYLONG_PRESS;
 			}
 			else
 			{
-				input->state = LONG_PRESS;
-				return LONG_PRESS;
+				input->state = SW_LONG_PRESS;
+				return SW_LONG_PRESS;
 			}
 		}
 		else
 		{
-			input->state = ON;
+			input->state = SW_ON;
 
 			if (input->hicount == SWITCH_DEBOUNCE)
 				// stijgende flank
-				return RISING;
+				return SW_RISING;
 		}
 	}
 
 	// niets veranderd, geef huidige status door
 	return input->state;
+}
+
+// controleer op wijzing schakelaarstatus, maar werk status niet bij
+switch_state Input_PeekEvent (switch_t *input)
+{
+	if (input->state != input->prevstate)
+		return input->state;
+	else
+		return NONE;
+}
+
+// controleer op wijziging schakelaarstatus en werk status bij
+switch_state Input_GetEvent (switch_t *input)
+{
+	switch_state value = Input_PeekEvent(input);
+	input->prevstate = input->state;
+	return value;
 }
 
 void EnterDeepSleep (void)
@@ -179,11 +194,11 @@ void EnterDeepSleep (void)
 	SH1106_TurnOff();
 
 	while (Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
-						&ENCSELsw) != OFF)
-		;
+					&ENCSELsw) != SW_OFF)
+	;
 	__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU | PWR_FLAG_SB);
 	// Even wachten zodat de controller niet meteen weer ingeschakeld wordt
-	for (i = 0; i < 5000000; i++)
+	for (i = 0; i < 500000; i++)
 	{
 		// doe iets, zorg dat de compiler deze lus niet wegoptimaliseet
 		ENCAsw.state = ENCBsw.state;
@@ -191,10 +206,11 @@ void EnterDeepSleep (void)
 
 	HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
 
-	// Datum opslaan in backup registers
-    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, date.Date);
-    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, date.Month);
-    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3, date.Year);
+	// Datum opslaan in backup register
+    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1,
+												(date.Date & 31) |
+												((date.Month & 15) << 5) |
+												((date.Year & 127) << 9));
 
 	HAL_PWR_EnableWakeUpPin (PWR_WAKEUP_PIN1);
 	HAL_PWR_EnterSTANDBYMode ();
@@ -263,10 +279,10 @@ int main(void)
 
 		Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 
-		while (ENCSELsw.state == ON)
+		while (ENCSELsw.state == SW_ON)
 			;
 
-		if (ENCSELsw.state != LONG_PRESS)
+		if (ENCSELsw.state != SW_LONG_PRESS)
 		{
 			EnterDeepSleep ();
 		}
@@ -292,11 +308,18 @@ int main(void)
 
 	LT_ShowStartScreen ();
 	SH1106_PaintScreen ();
+	HAL_Delay (10);
 
 	HAL_ADCEx_Calibration_Start (&hadc1);
 
-	HAL_Delay (2000);
+	// fade in
+	for (i = 0; i < 32; i++)
+	{
+		SH1106_SetBrightness ((uint8_t)(i * i * 0.25));
+		HAL_Delay (32);
+	}
 
+	HAL_Delay (1000);
 	UI_ShowMenu (&LT_MainMenu);
 	RunState = MENU;
 
@@ -306,6 +329,8 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+	i = 0;
 
 	while (1)
 	{
@@ -333,7 +358,7 @@ int main(void)
 		// Alleen als we niet al in een menu zitten, brengt een lange druk ons naar het menu
 		if (RunState != MENU)
 		{
-			if (ENCSELsw.state == LONG_PRESS)
+			if (ENCSELsw.state == SW_LONG_PRESS)
 			{
 				enccount = 0;
 				UI_ShowMenu (&LT_MainMenu);
@@ -443,35 +468,37 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 void HAL_SYSTICK_Callback (void)
 {
 	switch_state a, b;
-	uint32_t i;
+	uint32_t tick = HAL_GetTick();
 
 	// Ingangen testen. Debouncen en controleren op lange druk
 	a = Test_Input (HAL_GPIO_ReadPin (ENC_A_GPIO_Port, ENC_A_Pin), &ENCAsw);
 	b = Test_Input (HAL_GPIO_ReadPin (ENC_B_GPIO_Port, ENC_B_Pin), &ENCBsw);
 	Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 
-	HAL_GPIO_WritePin (CAM_A_GPIO_Port, CAM_A_Pin, ENCSELsw.state > OFF);
-	HAL_GPIO_WritePin (CAM_B_GPIO_Port, CAM_B_Pin, ENCSELsw.state > ON);
-
-	if (ENCSELsw.state > LONG_PRESS)
+	if (ENCSELsw.state > SW_LONG_PRESS)
 	{
 		// in diepe slaap gaan
 		EnterDeepSleep ();
 	}
 
 	// status encoder bepalen
-	if (b == RISING && (ENCAsw.state == ON))
+	if (b == SW_RISING && (ENCAsw.state == SW_ON))
 	{
 		// stijgende flank
 		enccount++;
+		lastinputtick = tick;
 	}
-	else if (b == FALLING && (ENCAsw.state == ON))
+	else if (b == SW_FALLING && (ENCAsw.state == SW_ON))
 	{
 		// dalende flank
 		enccount--;
+		lastinputtick = tick;
 	}
 
-	if ((HAL_GetTick () % 1000) == 0)
+	if (ENCSELsw.state != SW_OFF)
+		lastinputtick = tick;
+
+	if ((tick % 1000) == 0)
 	{
 		ADC_Count = ADC_Done;
 		ADC_Done = 0;
