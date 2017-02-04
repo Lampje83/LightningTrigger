@@ -13,6 +13,7 @@
 #include "input.h"
 
 void func_menu (void);						// subroutine voor menu afhandeling
+void func_setbrightness (void);		// helderheid instellen
 void func_showvoltages (void);		// subroutine om spanningen af te lezen
 void func_showclock (void);				// subroutine om klok weer te geven
 void func_showscope (void);				// triggerdata weergeven

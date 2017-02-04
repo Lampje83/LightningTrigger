@@ -14,7 +14,7 @@
 
 /* ALGEMENE DECLARES */
 
-#define MAX_MENUITEMS 6
+#define MAX_MENUITEMS 5
 
 // --- Menu structs ---
 

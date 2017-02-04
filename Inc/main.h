@@ -85,6 +85,8 @@
 #define CAM_A_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+void MX_RTC_Init_Without_Time (void);
+
 /* USER CODE END Private defines */
 
 /**

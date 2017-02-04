@@ -43,12 +43,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f1xx_hal.h"
-#include "adc.h"
-#include "dma.h"
-#include "rtc.h"
-#include "spi.h"
 #include "usb_device.h"
-#include "gpio.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -61,6 +56,13 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+RTC_HandleTypeDef hrtc;
+
+SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_tx;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -107,8 +109,14 @@ volatile int8_t enccount;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
+static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
+static void MX_SPI1_Init(void);
 
 /* USER CODE BEGIN PFP */
+
+static void MX_ADC1_Init(void);
+static void MX_RTC_Init(void);
 /* Private function prototypes -----------------------------------------------*/
 
 /* USER CODE END PFP */
@@ -250,6 +258,37 @@ void LT_SetBrightness (void)
 {
 	RunState = SET_BRIGHTNESS;
 	Dirty = 1;
+}
+
+void MX_RTC_Init_Without_Time (void)
+{
+	RTC_DateTypeDef date;
+
+	/**Initialize RTC Only
+	*/
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+	Error_Handler();
+  }
+
+  // RTC uitlezen. Als er een dag voorbij gegaan is sinds laatste update, staat deze niet op 1 januari '00
+
+  HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
+
+  // Controleer of er iets in het backupgeheugen staat
+  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == 0)
+	  // leeg, afbreken
+	  return;
+
+  // Opgeslagen datum bij klok optellen
+  date.Date += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) & 31) - 1;
+  date.Month += ((HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 5) & 15) - 1;
+  date.Year += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3) >> 9);
+
+  HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
 }
 
 /* USER CODE END 0 */
@@ -457,6 +496,209 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
+
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Common config 
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 3;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Regular Channel 
+    */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Regular Channel 
+    */
+  sConfig.Channel = ADC_CHANNEL_VREFINT;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Regular Channel 
+    */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = 3;
+  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* RTC init function */
+static void MX_RTC_Init(void)
+{
+
+  RTC_TimeTypeDef sTime;
+  RTC_DateTypeDef DateToUpdate;
+
+    /**Initialize RTC Only 
+    */
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Initialize RTC and set the Time and Date 
+    */
+  sTime.Hours = 0x12;
+  sTime.Minutes = 0x0;
+  sTime.Seconds = 0x0;
+
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
+  DateToUpdate.Month = RTC_MONTH_JANUARY;
+  DateToUpdate.Date = 0x1;
+  DateToUpdate.Year = 0x17;
+
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* SPI1 init function */
+static void MX_SPI1_Init(void)
+{
+
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_1LINE;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/** 
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void) 
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+
+}
+
+/** Configure pins as 
+        * Analog 
+        * Input 
+        * Output
+        * EVENT_OUT
+        * EXTI
+*/
+static void MX_GPIO_Init(void)
+{
+
+  GPIO_InitTypeDef GPIO_InitStruct;
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(DISP_DC_GPIO_Port, DISP_DC_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, DISP_RES_Pin|CAM_B_Pin|CAM_A_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : LED_Pin */
+  GPIO_InitStruct.Pin = LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : ENC_SEL_Pin */
+  GPIO_InitStruct.Pin = ENC_SEL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(ENC_SEL_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DISP_DC_Pin */
+  GPIO_InitStruct.Pin = DISP_DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(DISP_DC_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DISP_RES_Pin */
+  GPIO_InitStruct.Pin = DISP_RES_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(DISP_RES_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : CHG_ACT_Pin CHG_DONE_Pin */
+  GPIO_InitStruct.Pin = CHG_ACT_Pin|CHG_DONE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : ENC_B_Pin ENC_A_Pin */
+  GPIO_InitStruct.Pin = ENC_B_Pin|ENC_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : CAM_B_Pin CAM_A_Pin */
+  GPIO_InitStruct.Pin = CAM_B_Pin|CAM_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
