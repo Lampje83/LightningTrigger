@@ -56,6 +56,7 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 	// Stel Data mode in
 	// HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_SET);
 
+	return 0;
 }
 
 void SH1106_Clear (void)
@@ -103,16 +104,16 @@ int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)
 
 	switch (clr)
 	{
-	  case NORMAL:
+	  case DM_NORMAL:
 		disp_buffer[offset] |= 1 << bitpos;
 		break;
-	  case INVERT:
+	  case DM_INVERT:
 		disp_buffer[offset] &= 255 - (1 << bitpos);
 		break;
-	  case FAST:
+	  case DM_FAST:
 		disp_buffer[offset] = 1 << bitpos;
 		break;
-	  case XOR:
+	  case DM_XOR:
 		disp_buffer[offset] ^= 1 << bitpos;
 		break;
 	  default:
@@ -143,27 +144,28 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 
 	switch (clr)
 	{
-		case NORMAL:		// OR met buffer
+		case DM_NORMAL:		// OR met buffer
 			disp_buffer[index] |= value & mask;
 			break;
-		case INVERSE:		// value inverteren, OR met buffer
+		case DM_INVERSE:		// value inverteren, OR met buffer
 			disp_buffer[index] |= (~value) & mask;
 			break;
-		case REPLACE:		// buffer vervangen met value
+		case DM_REPLACE:		// buffer vervangen met value
 			disp_buffer[index] &= ~mask;
 			disp_buffer[index] |= value;
 			break;
-		case FAST:			// buffer vervangen met value, ongeschreven bits negeren
+		case DM_FAST:			// buffer vervangen met value, ongeschreven bits negeren
 			disp_buffer[index] = value;
 			break;
-		case REVERSE:		// value inverteren, ongeschreven bits negeren
+		case DM_REVERSE:		// value inverteren, ongeschreven bits negeren
 			disp_buffer[index] = ~value;
 			break;
-		case INVERT:		// value inverteren, AND met buffer (voor witte achtergrond)
+		case DM_INVERT:		// value inverteren, AND met buffer (voor witte achtergrond)
 			disp_buffer[index] &= ~value;
 			break;
-		case XOR:
+		case DM_XOR:
 			disp_buffer[index] ^= value & mask;
+			break;
 		default:
 			// niets doen
 			break;
@@ -190,7 +192,7 @@ int SH1106_DrawChar (char data, uint8_t x, uint8_t y, drawmode clr, uint8_t pitc
 
 	}
 
-	if (clr == INVERSE || clr == REVERSE)
+	if (clr == DM_INVERSE || clr == DM_REVERSE)
 	{
 		for (n = 5; n < pitch; n++)
 		{
@@ -205,7 +207,7 @@ int SH1106_DrawChar (char data, uint8_t x, uint8_t y, drawmode clr, uint8_t pitc
 
 int SH1106_DrawString (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *buf)
 {
-	uint8_t px, py, chrnum;
+	uint8_t chrnum;
 	for (chrnum = 0; chrnum < strlen(text); chrnum++)
 	{
 		SH1106_DrawChar (text[chrnum], x + 6 * chrnum, y, clr, 6);
@@ -215,7 +217,7 @@ int SH1106_DrawString (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *
 
 int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *buf)
 {
-	uint8_t		px, py, chrnum;
+	uint8_t	chrnum;
 
 	for (chrnum = 0; chrnum < strlen(text); chrnum++)
 	{
@@ -262,42 +264,14 @@ int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, draw
 		{
 			writedata = data[bitmapoffs];
 
-/*
-			switch (clr)
-			{
-				case INVERSE:
-					writedata = ~writedata;
-					// continue;
-					//fallthrough
-			  case NORMAL:
-				  disp_buffer[offset] |= writedata >> shift;
-				  if (shift)
-					disp_buffer[offset - XSIZE] |= writedata << (8 - shift);
-				  break;
-
-			  case NONE:
-				  break;
-
-			  default:
-				if (yp == 0 || shift == 0)
-				  disp_buffer[offset] = writedata >> shift;
-				else
-				  // Fast modus, maar onze vorige byte niet overschrijven
-				  disp_buffer[offset] |= writedata >> shift;
-
-				if (shift)
-				  disp_buffer[offset - XSIZE] = writedata << (8 - shift);
-				break;
-			}
-*/
-			if (clr == FAST && (shift == 0 || yp == 0))
+			if (clr == DM_FAST && (shift == 0 || yp == 0))
 			{
 				SH1106_SetByte (offset, writedata, -shift, clr, 8);
 			}
 			else
 			{
 				// Fast modus, maar onze vorige byte niet overschrijven
-				SH1106_SetByte (offset, writedata, -shift, REPLACE, 8);
+				SH1106_SetByte (offset, writedata, -shift, DM_REPLACE, 8);
 			}
 			if (shift)
 				SH1106_SetByte (offset - XSIZE, writedata, 8 - shift, clr, 8);

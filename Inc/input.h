@@ -34,8 +34,8 @@ typedef struct
 volatile switch_t ENCAsw, ENCBsw, ENCSELsw;
 extern volatile int8_t enccount;
 
-switch_state Test_Input (uint8_t value, switch_t *input);
-switch_state Input_PeekEvent (switch_t *input);
-switch_state Input_GetEvent (switch_t *input);
+switch_state Test_Input (uint8_t value, volatile switch_t *input);
+switch_state Input_PeekEvent (volatile switch_t *input);
+switch_state Input_GetEvent (volatile switch_t *input);
 
 #endif /* INPUT_H_ */

@@ -5,6 +5,7 @@
  */
 
 #include "stm32f1xx_hal.h"
+#include "string.h"
 
 #ifndef SH1106_H_
 #define SH1106_H_
@@ -22,14 +23,14 @@ SPI_HandleTypeDef *SH1106_HSPI;
 
 typedef enum
 {
-	NONE,		// Niets doen
-	NORMAL,		// OR
-	INVERSE,	// OR, geinverteerd
-	REPLACE,	// Buffer negeren
-	FAST,		// Elke bufferbyte die geschreven wordt, compleet legen
-	REVERSE,	// Buffer negeren, geinverteerd
-	INVERT,		// AND, geinverteerd
-	XOR				// XOR met buffer
+	DM_NONE,		// Niets doen
+	DM_NORMAL,		// OR
+	DM_INVERSE,	// OR, geinverteerd
+	DM_REPLACE,	// Buffer negeren
+	DM_FAST,		// Elke bufferbyte die geschreven wordt, compleet legen
+	DM_REVERSE,	// Buffer negeren, geinverteerd
+	DM_INVERT,		// AND, geinverteerd
+	DM_XOR				// XOR met buffer
 } drawmode;
 
 int SH1106_Init (SPI_HandleTypeDef *spi);
@@ -44,6 +45,7 @@ int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8
 int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
 int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
 int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, char *data);
+int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr);
 
 void SH1106_SPIDMA_Callback (void);			// callback die aangeroepen moet worden als SPI klaar is met schrijven beeldpagina
 int SH1106_PaintScreen (void);

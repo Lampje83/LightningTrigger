@@ -52,10 +52,11 @@
 
 /* USER CODE BEGIN Includes */
 
-#include "../../Drivers/SH1106/sh1106.h"
+#include "sh1106.h"
 #include "ui.h"
 #include "functions.h"
 #include "input.h"
+#include "triggers.h"
 
 /* USER CODE END Includes */
 
@@ -73,13 +74,15 @@ typedef enum
 	TIMELAPSE,
 	EXTERNAL_TRIGGER,
 	REMOTE_CONTROL,
-	SHOW_VOLTAGES,
+	SHOWVOLTAGES,
+	SHOWSCOPE,
 	SHUTTERDELAY_COUNTER,
 	SET_BRIGHTNESS,
 	SHOWCLOCK
 } run_state;
 
 #define NUM_SAMPLES			192
+#define SCOPESAMPLES		1024
 
 volatile uint16_t ADC_Done = 0, ADC_Count = 0;
 
@@ -87,6 +90,7 @@ volatile float voltages[8];
 volatile float ldr_voltage;
 
 uint16_t values[NUM_SAMPLES];
+uint8_t scopedata[SCOPESAMPLES];
 
 volatile uint8_t Dirty = 0;
 uint16_t framecount;
@@ -94,7 +98,8 @@ uint16_t framecount;
 run_state RunState = WELCOME;
 uint32_t nextactiontick;
 volatile uint32_t lastinputtick;
-
+uint32_t triggertick;
+static uint16_t scopecount = SCOPESAMPLES;
 volatile int8_t enccount;
 
 /* USER CODE END PV */
@@ -111,7 +116,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN 0 */
 
 // inputs testen
-switch_state Test_Input (uint8_t value, switch_t *input)
+switch_state Test_Input (uint8_t value, volatile switch_t *input)
 {
 	if (value)
 	{
@@ -165,16 +170,16 @@ switch_state Test_Input (uint8_t value, switch_t *input)
 }
 
 // controleer op wijzing schakelaarstatus, maar werk status niet bij
-switch_state Input_PeekEvent (switch_t *input)
+switch_state Input_PeekEvent (volatile switch_t *input)
 {
 	if (input->state != input->prevstate)
 		return input->state;
 	else
-		return NONE;
+		return SW_NONE;
 }
 
 // controleer op wijziging schakelaarstatus en werk status bij
-switch_state Input_GetEvent (switch_t *input)
+switch_state Input_GetEvent (volatile switch_t *input)
 {
 	switch_state value = Input_PeekEvent(input);
 	input->prevstate = input->state;
@@ -220,9 +225,14 @@ void EnterDeepSleep (void)
 void LT_ShowVoltages (void)
 {
 	SH1106_Clear ();
-	RunState = SHOW_VOLTAGES;
+	RunState = SHOWVOLTAGES;
 
 	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
+}
+
+void LT_ShowScope (void)
+{
+	RunState = SHOWSCOPE;
 }
 
 void LT_ShowClock (void)
@@ -345,8 +355,11 @@ int main(void)
 			case SET_BRIGHTNESS:
 				func_setbrightness ();
 				break;
-			case SHOW_VOLTAGES:
+			case SHOWVOLTAGES:
 				func_showvoltages ();
+				break;
+			case SHOWSCOPE:
+				func_showscope ();
 				break;
 			case SHOWCLOCK:
 				func_showclock ();
@@ -366,6 +379,12 @@ int main(void)
 
 				Dirty = 1;
 			}
+		}
+
+		if ((HAL_GetTick() - triggertick) > 10)
+		{
+			HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
 		}
 
 		if (Dirty)
@@ -445,33 +464,60 @@ void SystemClock_Config(void)
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 {
 	char text[16];
-	uint32_t value[2];
+	uint32_t value[5];
 	uint16_t i;
 
 	value[0] = 0;
 	value[1] = 0;
 	value[2] = 0;
+	value[3] = 0;
+	value[4] = -1;
+
+	voltages[4] = voltages[1];
+	voltages[5] = voltages[2];
+	voltages[1] = 0;
+
 	for (i = 0; i < NUM_SAMPLES; i += 3)
 	{
 		value[0] += values[i];
 		value[1] += values[i + 1];
 		value[2] += values[i + 2];
+		if (values[i] > value[3]) value[3] = values[i];
+		if (values[i] < value[4]) value[4] = values[i];
 	}
+
 	voltages[0] = value[0] / (value[1] / 1.2);
-  voltages[2] = value[2] / (value[1] / 2.4); // spanningsdeler, factor 2
-	if (voltages[0] > voltages[1])
-		voltages[1] = voltages[0];
+	voltages[1] = value[3] * (NUM_SAMPLES / 3) / (value[1] / 1.2);
+	voltages[2] = value[4] * (NUM_SAMPLES / 3) / (value[1] / 1.2);
+	voltages[3] = value[2] / (value[1] / 2.4); // spanningsdeler, factor 2
+
+	if ((voltages[0] - voltages[5]) > ((voltages[4] - voltages[5]) * 2))
+	{
+			// trigger!
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+		triggertick = HAL_GetTick ();
+		if (scopecount >= SCOPESAMPLES)	// scope niet hertriggeren bij nieuwe flank tijdens sampleduur
+			scopecount = 0;
+	}
+	//if (voltages[0] > voltages[1])
+	//	voltages[1] = voltages[0];
+	if (scopecount < SCOPESAMPLES)
+	{
+		scopedata[scopecount] = (voltages[0] / voltages[3]) * 255;
+		scopecount++;
+	}
 
 	ADC_Done++;
 }
 
 void HAL_SYSTICK_Callback (void)
 {
-	switch_state a, b;
+	switch_state b;
 	uint32_t tick = HAL_GetTick();
 
 	// Ingangen testen. Debouncen en controleren op lange druk
-	a = Test_Input (HAL_GPIO_ReadPin (ENC_A_GPIO_Port, ENC_A_Pin), &ENCAsw);
+	Test_Input (HAL_GPIO_ReadPin (ENC_A_GPIO_Port, ENC_A_Pin), &ENCAsw);
 	b = Test_Input (HAL_GPIO_ReadPin (ENC_B_GPIO_Port, ENC_B_Pin), &ENCBsw);
 	Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 

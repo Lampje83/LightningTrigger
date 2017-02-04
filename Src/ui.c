@@ -11,6 +11,7 @@
 extern void LT_ShowVoltages (void);
 extern void LT_ShowClock (void);
 extern void LT_SetBrightness (void);
+extern void LT_ShowScope (void);
 
 uint8_t		menupos = 0;		// Eerste menuitem in beeld
 uint8_t		selecteditem = 0;	// Geselecteerd item
@@ -25,11 +26,12 @@ const ui_menu	LT_MainMenu;
 
 const ui_menu LT_DebugMenu = {
 		"Diagnose",
-		4,
+		5,
 		(ui_menuitem[]) {
 			{ "Shutter delay test" },
 			{ "Toon spanningen", &LT_ShowVoltages },
 			{ "Toon klokfrequentie" },
+			{ "Toon triggergrafiek", &LT_ShowScope },
 			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
 		}
 };
@@ -90,11 +92,11 @@ extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 const ui_screen LT_StartScreen = {
 	5,
 	(void *[]){
-	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 66, 0, NORMAL, TOP },
-	(ui_textitem[1]) { TEXT, "Versie 2.0 alpha", 81, 16, FAST, TOP },
-	(ui_textitem[1]) { TEXT, "(c) 2017", 81, 32, FAST, TOP },
-	(ui_textitem[1]) { TEXT, "Erik van Beilen", 81, 48, FAST, TOP },
-	(ui_bitmapitem[1]) { BITMAP, 0, 16, 32, 48, NORMAL, TOPLEFT, &bmBliksem.pData }
+	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 66, 0, DM_NORMAL, TOP },
+	(ui_textitem[1]) { TEXT, "Versie 2.0 alpha", 81, 16, DM_FAST, TOP },
+	(ui_textitem[1]) { TEXT, "(c) 2017", 81, 32, DM_FAST, TOP },
+	(ui_textitem[1]) { TEXT, "Erik van Beilen", 81, 48, DM_FAST, TOP },
+	(ui_bitmapitem[1]) { BITMAP, 0, 16, 32, 48, DM_NORMAL, TOPLEFT, &bmBliksem.pData }
 	}
 };
 
@@ -120,6 +122,9 @@ uint8_t	UI_XAlign (uint8_t x, uint8_t width, ui_align align)
 		return x - width - 1;
 		break;
 	}
+
+	// shut up compiler
+	return x;
 }
 
 uint8_t	UI_YAlign (uint8_t y, uint8_t height, ui_align align)
@@ -142,6 +147,9 @@ uint8_t	UI_YAlign (uint8_t y, uint8_t height, ui_align align)
 		return y - height - 1;
 		break;
 	}
+
+	// shut up compiler
+	return y;
 }
 
 void UI_DrawText (ui_textitem *text, uint8_t bold)
@@ -208,21 +216,21 @@ void UI_DrawMenu (ui_menu *menu)
 	uint8_t		i;
 	uint8_t		firstitem, lastitem;
 	drawmode	dm;
-	char		filltext[21];
+	char		filltext[22];
 	char		*vartext;
 
 	SH1106_Clear ();
 
 	if (!menu) menu = activemenu;
 
-	UI_DrawText ((ui_textitem[1]){ TEXT, menu->title, 66, 0, NORMAL, TOP }, 1);
+	UI_DrawText ((ui_textitem[1]){ TEXT, menu->title, 66, 0, DM_NORMAL, TOP }, 1);
 
 	firstitem = menupos;
 	lastitem = menu->itemcount;
 
 	// niet meer dan 6 items in menu weergeven
-	if (lastitem - firstitem > 6)
-		lastitem = firstitem + 6;
+	if (lastitem - firstitem > MAX_MENUITEMS)
+		lastitem = firstitem + MAX_MENUITEMS;
 
 
 	for (i = firstitem; i < lastitem; i++)
@@ -239,13 +247,13 @@ void UI_DrawMenu (ui_menu *menu)
 		}
 		if (selecteditem == i)
 		{
-			dm = INVERSE;
+			dm = DM_INVERSE;
 			memset (filltext + strlen(filltext), 0x20, 21 - strlen(filltext));
 			filltext[21] = 0x0;
 			//SH1106_DrawString (filltext, strlen(filltext) * 6, (i - firstitem) * 9 + 8, dm, disp_buffer);
 		}
 		else
-			dm = NORMAL;
+			dm = DM_NORMAL;
 
 		SH1106_DrawString (filltext, 0, (i - firstitem) * 9 + 8, dm, disp_buffer);
 	}
@@ -278,7 +286,7 @@ void UI_ScrollMenu (int8_t steps)
 	 while (selecteditem >= itemcount) selecteditem -= itemcount;
 
 	 if (selecteditem < menupos) menupos = selecteditem;
-	 if (selecteditem > menupos + 5) menupos = selecteditem - 5;
+	 if (selecteditem > menupos + MAX_MENUITEMS - 1) menupos = selecteditem - (MAX_MENUITEMS - 1);
 }
 
 void UI_SelectMenu (void)

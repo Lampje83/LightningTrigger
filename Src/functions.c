@@ -11,12 +11,7 @@
 
 #include "functions.h"
 
-static uint8_t	menuselected = 0;			// bijhouden of drukknop losgelaten is
-
 static uint8_t	brightness = 0;
-static uint8_t	vcomdeselect = 0;
-static uint8_t	predischarge = 0x22;
-static uint8_t	dcvoltage = 3;
 
 char *func_getbrightness (void)
 {
@@ -74,14 +69,14 @@ void func_showvoltages ()
 	if (value < enccount)	// oplopend
 	{
 		memset (disp_buffer, 0, 80);
-		SH1106_DrawStringBold ("Rechtsom", 0, 0, NORMAL,
+		SH1106_DrawStringBold ("Rechtsom", 0, 0, DM_NORMAL,
 								disp_buffer);
 		Dirty = 1;
 	}
 	else if (value > enccount)
 	{
 		memset (disp_buffer, 0, 80);
-		SH1106_DrawStringBold ("Linksom", 0, 0, NORMAL,
+		SH1106_DrawStringBold ("Linksom", 0, 0, DM_NORMAL,
 								disp_buffer);
 		Dirty = 1;
 	}
@@ -89,20 +84,20 @@ void func_showvoltages ()
 
 	sprintf (text, "%i", enccount);
 	memset (disp_buffer + 90, 0, 42);
-	SH1106_DrawString (text, 90, 0, FAST, disp_buffer);
+	SH1106_DrawString (text, 90, 0, DM_FAST, disp_buffer);
 
 	sprintf (text, "FPS: %i", framecount);
 	memset (disp_buffer + 206, 0, 58);
-	SH1106_DrawString (text, 74, 8, FAST, disp_buffer);
+	SH1106_DrawString (text, 74, 8, DM_FAST, disp_buffer);
 
 	sprintf (text, "SPS: %i", ADC_Count);
 	memset (disp_buffer + 338, 0, 58);
-	SH1106_DrawString (text, 74, 16, FAST, disp_buffer);
+	SH1106_DrawString (text, 74, 16, DM_FAST, disp_buffer);
 
 	for (i = 0; i < 4; i++)
 	{
 		sprintf (text, "%1.3f V", voltages[i]);
-		SH1106_DrawString (text, 0, i * 8 + 32, FAST, disp_buffer);
+		SH1106_DrawString (text, 0, i * 8 + 32, DM_FAST, disp_buffer);
 	}
 
 	switch_state encstate = Input_GetEvent(&ENCSELsw);
@@ -110,16 +105,32 @@ void func_showvoltages ()
 	if (encstate == SW_ON)	// encoder ingedrukt
 	{
 		memset (disp_buffer, 0, 80);
-		SH1106_DrawString ("Drukknop", 0, 0, NORMAL, disp_buffer);
+		SH1106_DrawString ("Drukknop", 0, 0, DM_NORMAL, disp_buffer);
 		Dirty = 1;
 	}
 	else if (encstate == SW_VERYLONG_PRESS)
 	{
 		memset (disp_buffer, 0, 80);
-		SH1106_DrawString ("Nog langer!", 0, 0, NORMAL,
+		SH1106_DrawString ("Nog langer!", 0, 0, DM_NORMAL,
 							disp_buffer);
 		Dirty = 1;
 	}
+}
+
+extern uint8_t scopedata[];
+
+void func_showscope (void)
+{
+	uint8_t	x;
+
+	SH1106_Clear ();
+	UI_DrawText ((ui_textitem[]) {{ TEXT, "Scope", 66, 0, DM_NORMAL, TOP }}, 1);
+
+	for (x = 0; x < 128; x++)
+	{
+		SH1106_SetPixel (x, 63 - (scopedata[x] >> 3), DM_NORMAL);
+	}
+	Dirty = 1;
 }
 
 uint8_t RTC_IsLeapYear(uint16_t nYear)
@@ -161,18 +172,18 @@ void func_showclock (void)
 	// TODO: Ervoor zorgen dat de selector pas zichtbaar is als er aan de knop gedraaid wordt.
 	// Ook de selector na bepaalde tijd weer laten verdwijnen
 
-	UI_DrawText ((ui_textitem[]) { TEXT, "Klok", 66, 0, NORMAL, TOP }, 1);
+	UI_DrawText ((ui_textitem[]) {{ TEXT, "Klok", 66, 0, DM_NORMAL, TOP }}, 1);
 	HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
 	sprintf (text, "%02u-%02u-%4u", date.Date, date.Month, 2000 + date.Year);
-	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 16, NORMAL, TOP }, 0);
+	UI_DrawText ((ui_textitem[]) {{ TEXT, text, 66, 16, DM_NORMAL, TOP }}, 0);
 
 	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
 	sprintf (text, "%02u:%02u:%02u", time.Hours, time.Minutes, time.Seconds);
-	UI_DrawText ((ui_textitem[1]){ TEXT, text, 66, 44, NORMAL, TOP }, 0);
+	UI_DrawText ((ui_textitem[]) {{ TEXT, text, 66, 44, DM_NORMAL, TOP }}, 0);
 
 	if (enccount != 0 && !editmode)
 	{
-		editpos = (editpos - enccount) % 6;
+		editpos = (editpos + enccount) % 6;
 		if (editpos < 0) editpos += 6;
 		enccount = 0;
 		Dirty = 1;
@@ -183,11 +194,11 @@ void func_showclock (void)
 
 	if (editmode && ((HAL_GetTick() - tickoffset) % 600) >= 300)
 	{
-		clr = NORMAL;
+		clr = DM_NORMAL;
 	}
 	else
 	{
-		clr = XOR;
+		clr = DM_XOR;
 	}
 
 	if (editmode)
@@ -196,23 +207,26 @@ void func_showclock (void)
 
 	switch (editpos)
 	{
-		case 0:		// seconden
-			SH1106_FillBox (77, 43, 13, 9, clr);
-			break;
-		case 1:		// minuten
-			SH1106_FillBox (59, 43, 13, 9, clr);
-			break;
-		case 2:		// uren
-			SH1106_FillBox (41, 43, 13, 9, clr);
-			break;
-		case 3:		// dagen
+		case 0:		// dagen
 			SH1106_FillBox (35, 15, 13, 9, clr);
 			break;
-		case 4:		// maanden
+		case 1:		// maanden
 			SH1106_FillBox (53, 15, 13, 9, clr);
 			break;
-		case 5:		// jaren
+		case 2:		// jaren
 			SH1106_FillBox (71, 15, 25, 9, clr);
+			break;
+		case 3:		// uren
+			SH1106_FillBox (41, 43, 13, 9, clr);
+			break;
+		case 4:		// minuten
+			SH1106_FillBox (59, 43, 13, 9, clr);
+			break;
+		case 5:		// seconden
+			SH1106_FillBox (77, 43, 13, 9, clr);
+			break;
+		case 6:		// seconden
+			SH1106_FillBox (77, 43, 13, 9, clr);
 			break;
 		default:
 			break;

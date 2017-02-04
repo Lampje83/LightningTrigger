@@ -14,6 +14,8 @@
 
 /* ALGEMENE DECLARES */
 
+#define MAX_MENUITEMS 6
+
 // --- Menu structs ---
 
 typedef struct
@@ -115,14 +117,13 @@ typedef	struct
 	void		**items;
 } ui_screen;
 
-
+void UI_DrawText (ui_textitem *text, uint8_t bold);
 void UI_DrawMenu (ui_menu *menu);
 void UI_ShowMenu (ui_menu *menu);
 void UI_ScrollMenu (int8_t steps);
 void UI_SelectMenu (void);
 
 void UI_DrawScreen (ui_screen *screen);
-
 
 /* APP-SPECIFIEKE DECLARES */
 
