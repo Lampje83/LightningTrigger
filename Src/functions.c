@@ -42,6 +42,7 @@ void func_menu ()
 
 extern RunState;
 extern ui_menu LT_SettingsMenu;
+extern void func_menu (void);
 
 void func_setbrightness ()
 {
@@ -55,8 +56,11 @@ void func_setbrightness ()
 	}
 
 	if (Input_GetEvent(&ENCSELsw) == SW_ON)
+	{
 		// selectie gemaakt, terug naar menu
 		RunState = 2;
+		LT_SetNewHandler (&func_menu);
+	}
 }
 
 // Spanningen handler
@@ -131,6 +135,82 @@ void func_showscope (void)
 		SH1106_SetPixel (x, 63 - (scopedata[x] >> 3), DM_NORMAL);
 	}
 	Dirty = 1;
+}
+
+// ----- Cameravertraging timer
+
+extern uint32_t triggertick;
+
+void func_DelayTimer (void)
+{
+	static uint32_t	starttick = 0;
+	uint32_t currenttick;
+	char	timertext[8];
+
+	if (Input_GetEvent(&ENCSELsw) == SW_ON)
+	{
+		if (!HAL_GPIO_ReadPin (CAM_A_GPIO_Port, CAM_A_Pin))
+		{
+			SH1106_Clear ();
+			HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+			SH1106_DrawString ("Druk voor foto", 20, 0, DM_FAST, NULL);
+			Dirty = 1;
+		}
+		else
+		{
+			// start teller
+			SH1106_Clear ();
+			triggertick = HAL_GetTick ();
+			starttick = triggertick;
+			HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+		}
+	}
+
+	currenttick = HAL_GetTick();
+	if (currenttick - starttick < 1000)
+	{
+		sprintf (timertext, "%4u ms", currenttick - triggertick);
+		SH1106_DrawString (timertext, 40, 0, DM_FAST, NULL);
+		Dirty = 1;
+	}
+	else if (starttick != 0)
+	{
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+		SH1106_Clear ();
+		SH1106_DrawString ("Druk voor focus", 18, 0, DM_FAST, NULL);
+		Dirty = 1;
+		starttick = 0;
+	}
+}
+
+void func_EndDelayTimer (void)
+{
+	SH1106_SetDisplayHeight (64);		// Normaal
+	SH1106_SetDisplayOffset (0);
+	SH1106_SetRefreshRate (5, 0);	// fOSC
+
+	// Camera vrijgeven
+	HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+}
+
+void func_StartDelayTimer (void)
+{
+	// Stel beeldscherm in op 1 regel
+	SH1106_SetDisplayHeight (8);
+	SH1106_SetDisplayOffset (32);
+	SH1106_SetRefreshRate (14, 0);	// fOSC + 45%
+
+	// Zet camera scherp
+	HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+
+	SH1106_Clear ();
+	SH1106_DrawString ("Druk knop", 36, 0, DM_FAST, NULL);
+
+	Dirty = 1;
+
+	LT_SetNewHandler (&func_DelayTimer);
+	LT_FuncHandlerExit = &func_EndDelayTimer;
 }
 
 uint8_t RTC_IsLeapYear(uint16_t nYear)
@@ -225,7 +305,7 @@ void func_showclock (void)
 		case 5:		// seconden
 			SH1106_FillBox (77, 43, 13, 9, clr);
 			break;
-		case 6:		// seconden
+		case 6:		// terug
 			SH1106_FillBox (77, 43, 13, 9, clr);
 			break;
 		default:
@@ -236,22 +316,22 @@ void func_showclock (void)
 	{
 		switch (editpos)
 		{
-			case 0:	// seconden
+			case 5:	// seconden
 				time.Seconds += enccount;
 				if (time.Seconds > 195) time.Seconds += 60;
 				if (time.Seconds > 59) time.Seconds -= 60;
 				break;
-			case 1:
+			case 4:	// minuten
 				time.Minutes += enccount;
 				if (time.Minutes > 195)	time.Minutes += 60;
 				if (time.Minutes > 59) time.Minutes -= 60;
 				break;
-			case 2:
+			case 3:	// uren
 				time.Hours += enccount;
 				if (time.Hours > 195)	time.Hours += 24;
 				if (time.Hours > 23) time.Hours -= 24;
 				break;
-			case 3:
+			case 0:
 				date.Date += enccount;
 
 				switch (date.Month)
@@ -276,17 +356,17 @@ void func_showclock (void)
 				if (date.Date < 1 || date.Date > 224) date.Date += maxdate;
 				if (date.Date > maxdate) date.Date -= maxdate;
 				break;
-			case 4:
+			case 1:
 				date.Month += enccount;
 				if (date.Month < 1 || date.Month > 224) date.Month += 12;
 				if (date.Month > 12) date.Month -= 12;
 				break;
-			case 5:
+			case 2:
 				date.Year += enccount;
 				break;
 		}
 
-		if (editpos >= 3)
+		if (editpos < 3)
 			HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BIN);
 		else
 			HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);

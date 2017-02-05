@@ -80,18 +80,16 @@ typedef enum
 	SHOWSCOPE,
 	SHUTTERDELAY_COUNTER,
 	SET_BRIGHTNESS,
-	SHOWCLOCK
+	SHOWCLOCK,
 } run_state;
 
-#define NUM_SAMPLES			192
-#define SCOPESAMPLES		1024
-
-volatile uint16_t ADC_Done = 0, ADC_Count = 0;
+volatile uint16_t ADC_Done = 0;		// Aantal conversies in huidige frame
+volatile uint16_t ADC_Count = 0;	// Aantal conversies vorige frame
 
 volatile float voltages[8];
 volatile float ldr_voltage;
 
-uint16_t values[NUM_SAMPLES];
+uint16_t ADC_Samples[NUM_SAMPLES];
 uint8_t scopedata[SCOPESAMPLES];
 
 volatile uint8_t Dirty = 0;
@@ -230,10 +228,21 @@ void EnterDeepSleep (void)
 	//HAL_PWR_EnterSTOPMode (PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFE);
 }
 
+void LT_SetNewHandler (void* handler)
+{
+	if (LT_FuncHandlerExit != NULL)
+	{
+		LT_FuncHandlerExit ();
+		// Exit handler wissen
+		LT_FuncHandlerExit = NULL;
+	}
+	LT_FuncHandler = handler;
+}
 void LT_ShowVoltages (void)
 {
 	SH1106_Clear ();
 	RunState = SHOWVOLTAGES;
+	LT_SetNewHandler (&func_showvoltages);
 
 	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
 }
@@ -241,11 +250,13 @@ void LT_ShowVoltages (void)
 void LT_ShowScope (void)
 {
 	RunState = SHOWSCOPE;
+	LT_SetNewHandler (&func_showscope);
 }
 
 void LT_ShowClock (void)
 {
 	RunState = SHOWCLOCK;
+	LT_SetNewHandler (&func_showclock);
 
 	Dirty = 1; // zorg dat scherm getekend wordt
 	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
@@ -257,7 +268,21 @@ void LT_ShowClock (void)
 void LT_SetBrightness (void)
 {
 	RunState = SET_BRIGHTNESS;
+	LT_SetNewHandler (&func_setbrightness);
+
 	Dirty = 1;
+}
+
+void Trig_StartLightningTrigger (void)
+{
+	SH1106_Clear ();
+	UI_DrawScreen (&LT_LightningTrigScreen);
+	LT_ADCCompleteCallback = &Trig_LightningADCCallback;
+
+	Dirty = 1;
+
+	RunState = LIGHTNING_TRIGGER;
+	LT_SetNewHandler (&Trig_DoLightning);
 }
 
 void MX_RTC_Init_Without_Time (void)
@@ -297,10 +322,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	char text[16];
-	int32_t value = 0;
 	uint8_t i = 0;
-	uint8_t menuselected = 0;
 
   /* USER CODE END 1 */
 
@@ -348,7 +370,6 @@ int main(void)
 
 	MX_USB_DEVICE_Init ();
 
-	//HAL_ADC_Start (&hadc1);
 	SH1106_SetBrightness (0);
 
 	HAL_PWR_DisableWakeUpPin (PWR_WAKEUP_PIN1);
@@ -364,15 +385,16 @@ int main(void)
 	// fade in
 	for (i = 0; i < 32; i++)
 	{
-		SH1106_SetBrightness ((uint8_t)(i * i * 0.25));
-		HAL_Delay (32);
+		SH1106_SetBrightness ((uint8_t)((i * i) >> 3));
+		HAL_Delay (10);
 	}
 
-	HAL_Delay (1000);
+	HAL_ADC_Start_DMA (&hadc1, ADC_Samples, NUM_SAMPLES);
+
+	HAL_Delay (1800);
 	UI_ShowMenu (&LT_MainMenu);
 	RunState = MENU;
-
-	HAL_ADC_Start_DMA (&hadc1, values, NUM_SAMPLES);
+	LT_SetNewHandler (&func_menu);
 
   /* USER CODE END 2 */
 
@@ -386,6 +408,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
+/*
 		switch (RunState)
 		{
 			case MENU:
@@ -403,27 +426,27 @@ int main(void)
 			case SHOWCLOCK:
 				func_showclock ();
 				break;
+			case LIGHTNING_TRIGGER:
+				Trig_DoLightning ();
+				break;
 			default:
 				break;
 		}
+*/
+		LT_FuncHandler ();
 
 		// Alleen als we niet al in een menu zitten, brengt een lange druk ons naar het menu
-		if (RunState != MENU)
+		//if (RunState != MENU)
+		if (LT_FuncHandler != func_menu)
 		{
 			if (ENCSELsw.state == SW_LONG_PRESS)
 			{
 				enccount = 0;
 				UI_ShowMenu (&LT_MainMenu);
 				RunState = MENU;
-
+				LT_SetNewHandler (&func_menu);
 				Dirty = 1;
 			}
-		}
-
-		if ((HAL_GetTick() - triggertick) > 10)
-		{
-			HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
-			HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
 		}
 
 		if (Dirty)
@@ -705,52 +728,23 @@ static void MX_GPIO_Init(void)
 
 void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 {
-	char text[16];
-	uint32_t value[5];
-	uint16_t i;
-
-	value[0] = 0;
-	value[1] = 0;
-	value[2] = 0;
-	value[3] = 0;
-	value[4] = -1;
-
-	voltages[4] = voltages[1];
-	voltages[5] = voltages[2];
-	voltages[1] = 0;
-
-	for (i = 0; i < NUM_SAMPLES; i += 3)
+	if (LT_ADCCompleteCallback != NULL)
 	{
-		value[0] += values[i];
-		value[1] += values[i + 1];
-		value[2] += values[i + 2];
-		if (values[i] > value[3]) value[3] = values[i];
-		if (values[i] < value[4]) value[4] = values[i];
+		// 2e helft buffer doorgeven aan functie
+		LT_ADCCompleteCallback (ADC_Samples + (NUM_SAMPLES >> 1), NUM_SAMPLES >> 1);
 	}
 
-	voltages[0] = value[0] / (value[1] / 1.2);
-	voltages[1] = value[3] * (NUM_SAMPLES / 3) / (value[1] / 1.2);
-	voltages[2] = value[4] * (NUM_SAMPLES / 3) / (value[1] / 1.2);
-	voltages[3] = value[2] / (value[1] / 2.4); // spanningsdeler, factor 2
-
-	if ((voltages[0] - voltages[5]) > ((voltages[4] - voltages[5]) * 2))
-	{
-			// trigger!
-		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
-		triggertick = HAL_GetTick ();
-		if (scopecount >= SCOPESAMPLES)	// scope niet hertriggeren bij nieuwe flank tijdens sampleduur
-			scopecount = 0;
-	}
-	//if (voltages[0] > voltages[1])
-	//	voltages[1] = voltages[0];
-	if (scopecount < SCOPESAMPLES)
-	{
-		scopedata[scopecount] = (voltages[0] / voltages[3]) * 255;
-		scopecount++;
-	}
-
+	batteryvoltage = (float)ADC_Samples[NUM_SAMPLES - 1] * 2.0f / ((float)ADC_Samples[NUM_SAMPLES - 2] / 1.2f);
 	ADC_Done++;
+}
+
+void HAL_ADC_ConvHalfCpltCallback (ADC_HandleTypeDef* hadc)
+{
+	if (LT_ADCCompleteCallback != NULL)
+	{
+		// 1e helft buffer doorgeven aan functie
+		LT_ADCCompleteCallback (ADC_Samples, NUM_SAMPLES >> 1);
+	}
 }
 
 void HAL_SYSTICK_Callback (void)
@@ -793,6 +787,14 @@ void HAL_SYSTICK_Callback (void)
 		// Dirty = 1;
 		framecount = SH1106_GetFrameCount ();
 	}
+
+	// ontspanknop na bepaalde tijd loslaten
+
+	if ((HAL_GetTick() - triggertick) > 10)
+	{
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+	}
+
 }
 
 /**

@@ -11,6 +11,7 @@
 #include "sh1106.h"
 #include "string.h"
 #include "functions.h"
+#include "triggers.h"
 
 /* ALGEMENE DECLARES */
 
@@ -128,6 +129,8 @@ void UI_DrawScreen (ui_screen *screen);
 /* APP-SPECIFIEKE DECLARES */
 
 const ui_menu	LT_MainMenu;
+const ui_screen LT_LightningTrigScreen;
+
 uint8_t	ScreenBrightness;
 
 extern void EnterDeepSleep (void);

@@ -9,6 +9,7 @@
 uint8_t Data[9];
 SPI_HandleTypeDef *SH1106_HSPI = NULL;
 
+static uint8_t PagesToWrite = 8;
 static uint8_t pagenum = 255;
 
 int SH1106_Init (SPI_HandleTypeDef *spi)
@@ -59,6 +60,22 @@ int SH1106_Init (SPI_HandleTypeDef *spi)
 	return 0;
 }
 
+uint8_t	SH1106_WaitForRefresh (void)
+{
+	uint32_t	tick;
+
+	// afbreken indien bezig met refresh
+	if (SH1106_Busy())
+	{
+		tick = HAL_GetTick ();
+		while (SH1106_Busy() && ((HAL_GetTick() - tick) < 10));
+		if (SH1106_Busy())
+			return 0;	// mislukt
+	}
+
+	return 1;
+}
+
 void SH1106_Clear (void)
 {
 	memset(disp_buffer, 0, XSIZE * 8);
@@ -78,15 +95,9 @@ void SH1106_TurnOff (void)
 
 void SH1106_SetBrightness(uint8_t value)
 {
-	uint32_t	tick;
-	// afbreken indien
-	if (SH1106_Busy())
-	{
-		tick = HAL_GetTick ();
-		while (SH1106_Busy() && ((HAL_GetTick() - tick) < 10));
-		if (SH1106_Busy())
-			return;
-	}
+
+	if (!SH1106_WaitForRefresh ())
+		return;
 
 	// Stel Command mode in
 	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
@@ -95,6 +106,38 @@ void SH1106_SetBrightness(uint8_t value)
 	SH1106_WriteByte (value * 1.375 - (value >> 6) * 32);
 
 
+}
+
+void SH1106_SetDisplayHeight (uint8_t value)
+{
+
+	if (!SH1106_WaitForRefresh ())
+		return;
+
+	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
+	SH1106_WriteByte(0xA8);    /*multiplex ratio*/
+	SH1106_WriteByte(value - 1);
+	PagesToWrite = (value + 7) >> 3;
+}
+
+void SH1106_SetRefreshRate (uint8_t freq, uint8_t divider)
+{
+	if (!SH1106_WaitForRefresh ())
+		return;
+
+	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
+	SH1106_WriteByte(0xD5);    /*clock divide / oscillator frequency */
+	SH1106_WriteByte((divider & 15) | ((freq & 15) << 4));
+}
+
+void SH1106_SetDisplayOffset (uint8_t line)
+{
+	if (!SH1106_WaitForRefresh ())
+		return;
+
+	HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);
+	SH1106_WriteByte(0xD3);    // display line offset
+	SH1106_WriteByte(line & 0x3f);
 }
 
 int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr)
@@ -126,10 +169,15 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 {
 	uint8_t mask;		// bewerkmasker voor buffer
 
-	if (width > 0 && width < 8)	// Bij 0 gaan we er vanuit dat de breedte niet opgegeven is
-		mask = ((1 << width) - 1) << shift;
-	else
+	if (width == 0 || width > 8)	// Bij 0 gaan we er vanuit dat de breedte niet opgegeven is
+	{
+		width = 8;
 		mask = 255 << shift;
+	}
+	else
+	{
+		mask = ((1 << width) - 1) << shift;
+	}
 
 	if (shift > 0)
 	{
@@ -139,13 +187,13 @@ int SH1106_SetByte (uint16_t index, uint8_t value, int8_t shift, drawmode clr, u
 	else if (shift < 0)
 	{
 		value >>= -shift;
-		mask = ((1 << width) -1) >> (-shift);
+		mask = ((1 << width) - 1) >> (-shift);
 	}
 
 	switch (clr)
 	{
 		case DM_NORMAL:		// OR met buffer
-			disp_buffer[index] |= value & mask;
+			disp_buffer[index] |= (value & mask);
 			break;
 		case DM_INVERSE:		// value inverteren, OR met buffer
 			disp_buffer[index] |= (~value) & mask;
@@ -235,14 +283,19 @@ int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmod
 
 int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr)
 {
-	uint8_t		xp, yp, shift;
+	uint8_t		xp, yp, shift, data;
+	uint8_t		bwidth;
 
 	shift = y & 7;
 	for (yp = 0; yp < height + (y & 7); yp += 8)
 	{
+		bwidth = height - yp;
+		if (yp > 0) bwidth += y & 7;
+		if (bwidth > 8) bwidth = 8;
+		data = ((1 << bwidth) - 1);
 		for (xp = x; xp < x + width; xp++)
 		{
-			SH1106_SetByte (xp + ((y + yp) >> 3) * XSIZE, 255, shift, clr, height + (y & 7) - yp);
+			SH1106_SetByte (xp + ((y + yp) >> 3) * XSIZE, data, shift, clr, bwidth);
 		}
 		shift = 0;
 	}
@@ -304,7 +357,7 @@ void SH1106_SPIDMA_Callback (void)
 
   if (SH1106_HSPI->hdmatx->State == HAL_DMA_STATE_READY)
   {
-	  if (pagenum < 8)
+	  if (pagenum < PagesToWrite)
 	  {
 			// Stel Command mode in
 			HAL_GPIO_WritePin(SH1106_DC, GPIO_PIN_RESET);

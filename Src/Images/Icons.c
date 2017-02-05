@@ -96,4 +96,22 @@ GUI_CONST_STORAGE GUI_BITMAP bmBattery = {
   &_PalIcon   // Pointer to palette
 };
 
+
+static GUI_CONST_STORAGE unsigned char _acLightning[] = {
+	XX__XX__,
+	_XXXXXXX,
+	__XXXXXX,
+	___XX_XX,
+	____X___,
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmLightning = {
+  8, // xSize
+  5, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acLightning,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
 /*************************** End of file ****************************/

@@ -47,6 +47,8 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "stm32f1xx.h"
+
 /* USER CODE END Includes */
 
 /* Private define ------------------------------------------------------------*/
@@ -85,7 +87,26 @@
 #define CAM_A_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+#define NUM_SAMPLES			384
+#define SCOPESAMPLES		1024
+
+/* Private variables ---------------------------------------------------------*/
+
+static uint16_t scopecount;
+volatile float						batteryvoltage;
+
+/* Private function prototypes -----------------------------------------------*/
+
 void MX_RTC_Init_Without_Time (void);
+void LT_SetNewHandler (void* handler);
+
+void (*LT_ADCCompleteCallback)(uint16_t *, uint16_t);		// function pointer voor ADC complete
+																												// pointer naar data en lengte opgeven
+void (*LT_RTCAlarmCallback)(void);						// Handler voor RTC event (timelapse etc)
+void (*LT_FuncHandler)(void);									// Algemene handler, beeldopbouw etc
+void (*LT_FuncHandlerExit)(void);							// Functie om handler af te sluiten
+void (*LT_EncTurnCallback)(int8_t *);					// Handler voor draai encoder
+void (*LT_EncPressCallback)(void);						// Handler voor drukknop
 
 /* USER CODE END Private defines */
 

@@ -28,7 +28,7 @@ const ui_menu LT_DebugMenu = {
 		"Diagnose",
 		5,
 		(ui_menuitem[]) {
-			{ "Shutter delay test" },
+			{ "Shutter delay test", &LT_SetNewHandler, NULL, &func_StartDelayTimer },
 			{ "Toon spanningen", &LT_ShowVoltages },
 			{ "Toon klokfrequentie" },
 			{ "Toon triggergrafiek", &LT_ShowScope },
@@ -65,13 +65,14 @@ const ui_menu	LT_SettingsMenu = {
 
 const ui_menu LT_ModeMenu = {
 		"Modus",
-		6,
+		7,
 		(ui_menuitem[]) {
-			{ "Bliksem" },
+			{ "Bliksem", &Trig_StartLightningTrigger },
 			{ "Timelapse" },
 			{ "Tijdstip" },
 			{ "Afstandsbediening" },
 			{ "Ext. trigger" },
+			{ "Stoppen" },
 			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
 		}
 };
@@ -92,12 +93,24 @@ extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 const ui_screen LT_StartScreen = {
 	5,
 	(void *[]){
-	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 66, 0, DM_NORMAL, TOP },
+	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 64, 0, DM_NORMAL, TOP },
 	(ui_textitem[1]) { TEXT, "Versie 2.0 alpha", 81, 16, DM_FAST, TOP },
 	(ui_textitem[1]) { TEXT, "(c) 2017", 81, 32, DM_FAST, TOP },
 	(ui_textitem[1]) { TEXT, "Erik van Beilen", 81, 48, DM_FAST, TOP },
 	(ui_bitmapitem[1]) { BITMAP, 0, 16, 32, 48, DM_NORMAL, TOPLEFT, &bmBliksem.pData }
 	}
+};
+
+const char*	FocusHelpText[2] =		{ "Draai rechtsom", "voor focus" };
+const char* DefocusHelpText[2] =	{ "Draai linksom", "voor defocus" };
+
+uint8_t *LT_TriggerBitmap = NULL;
+
+const ui_screen LT_LightningTrigScreen = {
+		1,
+		(void *[]) {
+			(ui_textitem[1]) { BOLDTEXT, "Bliksem", 64, 0, DM_NORMAL, TOP },
+		}
 };
 
 extern volatile uint8_t Dirty;
@@ -211,6 +224,9 @@ void UI_DrawScreen (ui_screen *screen)
 	}
 }
 
+extern GUI_CONST_STORAGE GUI_BITMAP bmBattery;
+extern GUI_CONST_STORAGE GUI_BITMAP bmLightning;
+
 void UI_DrawMenu (ui_menu *menu)
 {
 	uint8_t		i;
@@ -218,12 +234,15 @@ void UI_DrawMenu (ui_menu *menu)
 	drawmode	dm;
 	char		filltext[22];
 	char		*vartext;
+	RTC_TimeTypeDef	time;
 
 	SH1106_Clear ();
 
+	HAL_RTC_GetTime (&hrtc, &time, RTC_FORMAT_BIN);
+
 	if (!menu) menu = activemenu;
 
-	UI_DrawText ((ui_textitem[1]){ TEXT, menu->title, 66, 0, DM_NORMAL, TOP }, 1);
+	UI_DrawText ((ui_textitem[1]){{ TEXT, menu->title, 66, 0, DM_NORMAL, TOP }}, 1);
 
 	firstitem = menupos;
 	lastitem = menu->itemcount;
@@ -257,6 +276,24 @@ void UI_DrawMenu (ui_menu *menu)
 
 		SH1106_DrawString (filltext, 0, (i - firstitem) * 9 + 8, dm, disp_buffer);
 	}
+
+	// Triggermodus weergeven
+ if (LT_ADCCompleteCallback == &Trig_LightningADCCallback)
+		SH1106_DrawBitmap (70, 56, bmLightning.YSize, bmLightning.XSize, DM_REPLACE, bmLightning.pData);
+
+	// Klok tekenen
+	sprintf (filltext, "%02u:%02u", time.Hours, time.Minutes);
+	SH1106_DrawString (filltext, 96, 56, DM_REPLACE, disp_buffer);
+
+	// Batterij tekenen
+	SH1106_DrawBitmap (78, 56, bmBattery.YSize, bmBattery.XSize, DM_REPLACE, bmBattery.pData);
+
+	// Batterijbalk tekenen
+	i = (uint8_t)(((batteryvoltage - 1.9) / 1.4) * 12);
+	if (i >= 128) i = 0;
+	if (i > 12) i = 12;
+	if (i > 0)
+		SH1106_FillBox (80, 58, i, 3, DM_NORMAL);
 
 	Dirty = 1;
 }

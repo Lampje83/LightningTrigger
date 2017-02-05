@@ -17,6 +17,7 @@ void func_setbrightness (void);		// helderheid instellen
 void func_showvoltages (void);		// subroutine om spanningen af te lezen
 void func_showclock (void);				// subroutine om klok weer te geven
 void func_showscope (void);				// triggerdata weergeven
+void func_StartDelayTimer (void);
 
 char *func_getbrightness (void);	// functie om ingestelde helderheid in tekst om te zetten
 
