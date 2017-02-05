@@ -303,7 +303,7 @@ int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmod
 	return 0;
 }
 
-int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, char *data)
+int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, uint8_t *data)
 {
 	uint16_t	offset;			// byte offset in schermbuffer
 	uint16_t	bitmapoffs;		// byte offset in bitmapbuffer

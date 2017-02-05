@@ -110,4 +110,32 @@ GUI_CONST_STORAGE GUI_BITMAP bmBliksem = {
   &_PalBliksem   // Pointer to palette
 };
 
+static GUI_CONST_STORAGE unsigned char _acBliksemSmall[] = {
+  XX______, __XX____, ________,
+  _XXX____, __XXXXX_, ________,
+  __XXXX__, __XXXXXX, X_______,
+  ___XXXXX, __XXXXXX, XXXX____,
+  ____XXXX, XXXXXXXX, XXXXXX__,
+  _____XXX, XXXXXXXX, XXXXXXXX,
+  ______XX, XXXXXXXX, XXXXXXXX,
+  _______X, XXXXXXXX, XXXXXXXX,
+  ________, XXXXXXXX, XXXXXXXX,
+  ________, _XXXXXXX, XXXXXXXX,
+  ________, __XXXXXX, __XXXXXX,
+  ________, ___XXXXX, ___XXXXX,
+  ________, ____XXXX, _____XXX,
+  ________, _____XXX, ______XX,
+  ________, ______XX, _______X,
+  ________, _______X, ________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmBliksemSmall = {
+  24, // xSize
+  16, // ySize
+  3, // BytesPerLine
+  1, // BitsPerPixel
+  _acBliksemSmall,  // Pointer to picture data (indices)
+  &_PalBliksem   // Pointer to palette
+};
+
 /*************************** End of file ****************************/

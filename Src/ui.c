@@ -72,7 +72,7 @@ const ui_menu LT_ModeMenu = {
 			{ "Tijdstip" },
 			{ "Afstandsbediening" },
 			{ "Ext. trigger" },
-			{ "Stoppen" },
+			{ "Stoppen", &Trig_StopAllTriggers },
 			{ "Terug", &UI_ShowMenu, NULL, &LT_MainMenu }
 		}
 };
@@ -103,13 +103,25 @@ const ui_screen LT_StartScreen = {
 
 const char*	FocusHelpText[2] =		{ "Draai rechtsom", "voor focus" };
 const char* DefocusHelpText[2] =	{ "Draai linksom", "voor defocus" };
+const char* FocusHelpText1 = "voor focus";
 
 uint8_t *LT_TriggerBitmap = NULL;
 
-const ui_screen LT_LightningTrigScreen = {
-		1,
+ui_screen LT_LightningTrigScreen = {
+		3,
 		(void *[]) {
-			(ui_textitem[1]) { BOLDTEXT, "Bliksem", 64, 0, DM_NORMAL, TOP },
+			(ui_textitem[1]) {{ BOLDTEXT, "Bliksem", 64, 0, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Draai rechtsom", 64, 8, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "voor focus", 64, 16, DM_NORMAL, TOP }}
+		}
+};
+
+ui_screen LT_LightningTrigDefocusScreen = {
+		3,
+		(void *[]) {
+			(ui_textitem[1]) {{ BOLDTEXT, "Bliksem", 64, 0, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Draai linksom", 64, 8, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "voor vrijgeven", 64, 16, DM_NORMAL, TOP }}
 		}
 };
 
@@ -279,21 +291,21 @@ void UI_DrawMenu (ui_menu *menu)
 
 	// Triggermodus weergeven
  if (LT_ADCCompleteCallback == &Trig_LightningADCCallback)
-		SH1106_DrawBitmap (70, 56, bmLightning.YSize, bmLightning.XSize, DM_REPLACE, bmLightning.pData);
+		SH1106_DrawBitmap (68, 56, bmLightning.YSize, bmLightning.XSize, DM_REPLACE, bmLightning.pData);
 
 	// Klok tekenen
 	sprintf (filltext, "%02u:%02u", time.Hours, time.Minutes);
 	SH1106_DrawString (filltext, 96, 56, DM_REPLACE, disp_buffer);
 
 	// Batterij tekenen
-	SH1106_DrawBitmap (78, 56, bmBattery.YSize, bmBattery.XSize, DM_REPLACE, bmBattery.pData);
+	SH1106_DrawBitmap (76, 56, bmBattery.YSize, bmBattery.XSize, DM_REPLACE, bmBattery.pData);
 
 	// Batterijbalk tekenen
 	i = (uint8_t)(((batteryvoltage - 1.9) / 1.4) * 12);
 	if (i >= 128) i = 0;
 	if (i > 12) i = 12;
 	if (i > 0)
-		SH1106_FillBox (80, 58, i, 3, DM_NORMAL);
+		SH1106_FillBox (78, 58, i, 3, DM_NORMAL);
 
 	Dirty = 1;
 }

@@ -129,7 +129,7 @@ void UI_DrawScreen (ui_screen *screen);
 /* APP-SPECIFIEKE DECLARES */
 
 const ui_menu	LT_MainMenu;
-const ui_screen LT_LightningTrigScreen;
+extern ui_screen LT_LightningTrigScreen;
 
 uint8_t	ScreenBrightness;
 

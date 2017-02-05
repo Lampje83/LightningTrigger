@@ -11,7 +11,9 @@
 #include "stm32f1xx.h"
 #include "main.h"
 #include "ui.h"
+#include "GUI.h"
 
+/*
 typedef struct
 {
 	void	(*entry);				// functie om deze trigger te starten
@@ -26,6 +28,9 @@ void	lightning_exit (void);
 void	exttrig_entry (void);
 void	exttrig_handler (void);
 void	exttrig_exit (void);
+*/
+
+void	Trig_StopAllTriggers (void);
 
 void	Trig_StartLightningTrigger (void);
 void	Trig_LightningADCCallback (uint16_t *samples, uint16_t length);

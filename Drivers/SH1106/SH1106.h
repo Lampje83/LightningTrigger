@@ -44,7 +44,7 @@ int SH1106_DrawString (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *
 int SH1106_DrawStringBold (char *text, uint8_t x, uint8_t y, drawmode clr, uint8_t *buf);
 int SH1106_DrawBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
 int SH1106_FillBox (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr);
-int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, char *data);
+int SH1106_DrawBitmap (uint8_t x, uint8_t y, uint8_t width, uint8_t height, drawmode clr, uint8_t *data);
 int SH1106_SetPixel (uint8_t x, uint8_t y, drawmode clr);
 void SH1106_SetRefreshRate (uint8_t freq, uint8_t divider);
 void SH1106_SetDisplayHeight (uint8_t value);

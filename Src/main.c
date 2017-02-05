@@ -98,7 +98,7 @@ uint16_t framecount;
 run_state RunState = WELCOME;
 uint32_t nextactiontick;
 volatile uint32_t lastinputtick;
-uint32_t triggertick;
+uint32_t triggertick = 0;
 static uint16_t scopecount = SCOPESAMPLES;
 volatile int8_t enccount;
 
@@ -271,18 +271,6 @@ void LT_SetBrightness (void)
 	LT_SetNewHandler (&func_setbrightness);
 
 	Dirty = 1;
-}
-
-void Trig_StartLightningTrigger (void)
-{
-	SH1106_Clear ();
-	UI_DrawScreen (&LT_LightningTrigScreen);
-	LT_ADCCompleteCallback = &Trig_LightningADCCallback;
-
-	Dirty = 1;
-
-	RunState = LIGHTNING_TRIGGER;
-	LT_SetNewHandler (&Trig_DoLightning);
 }
 
 void MX_RTC_Init_Without_Time (void)
@@ -734,7 +722,9 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 		LT_ADCCompleteCallback (ADC_Samples + (NUM_SAMPLES >> 1), NUM_SAMPLES >> 1);
 	}
 
-	batteryvoltage = (float)ADC_Samples[NUM_SAMPLES - 1] * 2.0f / ((float)ADC_Samples[NUM_SAMPLES - 2] / 1.2f);
+	// batterijspanning uitlezen
+	batteryvoltage = (float)ADC_Samples[NUM_SAMPLES - 1] * POWER_LOW_VOLTAGE
+								 / ((float)ADC_Samples[NUM_SAMPLES - 2] / (POWER_HIGH_VOLTAGE - POWER_LOW_VOLTAGE));
 	ADC_Done++;
 }
 

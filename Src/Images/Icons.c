@@ -114,4 +114,64 @@ GUI_CONST_STORAGE GUI_BITMAP bmLightning = {
   &_PalIcon   // Pointer to palette
 };
 
+static GUI_CONST_STORAGE unsigned char _acTimeLapse[] = {
+	________,
+	__X_____,
+	_XXX____,
+	_XXXXXXX,
+	_XXXXXXX,
+	__XXXXX_,
+	___XXX__,
+	________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmTimeLapse = {
+  8, // xSize
+  8, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acTimeLapse,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
+static GUI_CONST_STORAGE unsigned char _acClock[] = {
+	___XXX__,
+	__X___X_,
+	_X_____X,
+	_X__XX_X,
+	_X__X__X,
+	__X___X_,
+	___XXX__,
+	________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmClock = {
+  8, // xSize
+  8, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acTimeLapse,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
+static GUI_CONST_STORAGE unsigned char _acExternal[] = {
+	___X____,
+	__X__X__,
+	_X____X_,
+	_X_XXXXX,
+	_X____X_,
+	__X__X__,
+	___X____,
+	________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmExternal = {
+  8, // xSize
+  8, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acTimeLapse,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
 /*************************** End of file ****************************/

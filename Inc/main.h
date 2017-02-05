@@ -90,6 +90,9 @@
 #define NUM_SAMPLES			384
 #define SCOPESAMPLES		1024
 
+#define POWER_HIGH_VOLTAGE	3.2			// max batterijspanning
+#define POWER_LOW_VOLTAGE		2.0			// min batterijspanning
+
 /* Private variables ---------------------------------------------------------*/
 
 static uint16_t scopecount;
