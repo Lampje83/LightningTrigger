@@ -150,7 +150,7 @@ GUI_CONST_STORAGE GUI_BITMAP bmClock = {
   8, // ySize
   1, // BytesPerLine
   1, // BitsPerPixel
-  _acTimeLapse,  // Pointer to picture data (indices)
+  _acClock,  // Pointer to picture data (indices)
   &_PalIcon   // Pointer to palette
 };
 
@@ -170,7 +170,27 @@ GUI_CONST_STORAGE GUI_BITMAP bmExternal = {
   8, // ySize
   1, // BytesPerLine
   1, // BitsPerPixel
-  _acTimeLapse,  // Pointer to picture data (indices)
+  _acExternal,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
+static GUI_CONST_STORAGE unsigned char _acCamera[] = {
+	_XXXXXX_,
+	_X____X_,
+	_X__X__X,
+	_X_X_X_X,
+	_X__X__X,
+	_X____X_,
+	_XXXXXX_,
+	________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmCamera = {
+  8, // xSize
+  8, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acCamera,  // Pointer to picture data (indices)
   &_PalIcon   // Pointer to palette
 };
 

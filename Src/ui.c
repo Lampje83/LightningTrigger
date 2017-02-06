@@ -128,6 +128,26 @@ ui_screen LT_LightningTrigDefocusScreen = {
 		}
 };
 
+ui_screen LT_ManualTrigScreen = {
+		4,
+		(void *[]) {
+			(ui_textitem[1]) {{ BOLDTEXT, "Handbediening", 64, 0, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Draai rechtsom", 64, 8, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "voor focus", 64, 16, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Druk voor ontspanknop", 64, 24, DM_NORMAL, TOP }}
+		}
+};
+
+ui_screen LT_ManualTrigDefocusScreen = {
+		4,
+		(void *[]) {
+			(ui_textitem[1]) {{ BOLDTEXT, "Handbediening", 64, 0, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Draai linksom", 64, 8, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "voor vrijgeven", 64, 16, DM_NORMAL, TOP }},
+			(ui_textitem[1]) {{ TEXT, "Druk voor ontspanknop", 64, 24, DM_NORMAL, TOP }}
+		}
+};
+
 extern volatile uint8_t Dirty;
 
 uint8_t	UI_XAlign (uint8_t x, uint8_t width, ui_align align)
