@@ -11,6 +11,129 @@
 
 #include "functions.h"
 
+extern uint32_t triggertick;
+
+// Menu handler
+void func_menu ()
+{
+	// niets doen!
+
+	if (!LT_FuncHandlerExit)
+		LT_FuncHandlerExit = &func_menuexit;
+
+	if (enccount != 0)
+	{
+		// UI_ScrollMenu (enccount);
+		// enccount = 0;
+	}
+}
+
+void func_menuexit (void)
+{
+	LT_EncTurnCallback = NULL;
+	LT_EncPressCallback = NULL;
+}
+
+extern ui_menu LT_SettingsMenu;
+extern void func_menu (void);
+
+/*
+ *	Parameters
+ */
+
+char msToText (uint32_t milliseconds)
+{
+	static char text[6];
+
+	if (milliseconds < 1000)	// korter dan 1 sec, milliseconden weergeven
+		sprintf (text, "%lums", milliseconds);
+	else if (milliseconds < 60000)	// korter dan 60 sec, seconden weergeven
+		sprintf (text, "%us", (uint8_t)(milliseconds * 0.001));
+	else if (milliseconds < 3600000)	// korter dan 1 uur, minuten weergeven
+		sprintf (text, "%lum", milliseconds / 60000);
+	else if ((milliseconds % 3600000) == 0) // precies een uur
+		sprintf (text, "%luu", milliseconds / 3600000);
+	else	// uren en minuten weergeven
+		sprintf (text, "%luu%lum", milliseconds / 3600000, (milliseconds % 3600000) / 60000);
+
+	return text;
+}
+
+char *secToText (uint32_t seconds)
+{
+	static char text[6];
+
+	if (seconds < 1)	// korter dan 1 sec, Niet dus
+		sprintf (text, "Nooit");
+	else if (seconds < 60)	// korter dan 60 sec, seconden weergeven
+		sprintf (text, "%lus", seconds);
+	else if (seconds < 3600)	// korter dan 1 uur, minuten weergeven
+		sprintf (text, "%lum", seconds / 60);
+	else if (seconds < 86400) // uren en minuten weergeven
+	{
+		if ((seconds % 3600) == 0) // precies een uur
+			sprintf (text, "%luu", seconds / 3600);
+		else
+			sprintf (text, "%luu%lum", seconds / 3600, (seconds % 3600) / 60);
+	}
+	else if ((seconds % 86400) == 0) // precies een dag
+		sprintf (text, "%lud", seconds / 86400);
+	else
+		sprintf (text, "%lud%luu", seconds / 86400, (seconds % 86400) / 3600);
+
+	return text;
+}
+
+uint32_t stepMilliSeconds (uint32_t value, int8_t steps)
+{
+	if (steps > 0)
+	{
+		if (value < 20)
+			value += steps;
+		else if (value < 150)
+			value += 5 * steps;
+		else if (value < 500)
+			value += 10 * steps;
+		else if (value < 1000)
+			value += 100 * steps;
+		else if (value < 10000)
+			value += 1000 * steps;
+		else if (value < 60000)
+			value += 5000 * steps;
+		else if (value < 7200000)
+			value += 60000 * steps;
+		else if (value < 86400000)
+			value += 3600000 * steps;
+		else
+			value += 21600000 * steps;
+	}
+	if (steps < 0)
+	{
+		if (value <= 20)
+			value += steps;
+		else if (value <= 150)
+			value += 5 * steps;
+		else if (value <= 500)
+			value += 10 * steps;
+		else if (value <= 1000)
+			value += 100 * steps;
+		else if (value <= 10000)
+			value += 1000 * steps;
+		else if (value <= 60000)
+			value += 5000 * steps;
+		else if (value <= 7200000)
+			value += 300000 * steps;
+		else if (value <= 86400000)
+			value += 3600000 * steps;
+		else
+			value += 21600000 * steps;
+	}
+
+	return value;
+}
+
+// Helderheid
+
 static uint8_t	brightness = 0;
 
 char *func_getbrightness (void)
@@ -22,45 +145,162 @@ char *func_getbrightness (void)
 	return text;
 }
 
-// Menu handler
-void func_menu ()
+void func_setbrightness (int8_t	steps)
 {
-	if (enccount != 0)
+	if (steps != 0)
 	{
-		UI_ScrollMenu (enccount);
-		enccount = 0;
-		UI_DrawMenu (NULL);
-		Dirty = 1;
-	}
-
-	if (Input_GetEvent(&ENCSELsw) == SW_ON)
-	{
-		// selectie gemaakt
-		UI_SelectMenu ();
-	}
-}
-
-extern RunState;
-extern ui_menu LT_SettingsMenu;
-extern void func_menu (void);
-
-void func_setbrightness ()
-{
-	if (enccount != 0)
-	{
-		brightness += enccount;
-		enccount = 0;
+		brightness += steps * 5;
+		// enccount = 0;
 		SH1106_SetBrightness (brightness);
 		UI_DrawMenu (&LT_SettingsMenu);
 		Dirty = 1;
 	}
+}
 
-	if (Input_GetEvent(&ENCSELsw) == SW_ON)
+// Sluitertijd
+
+uint32_t	shuttertime = 1;
+
+char *func_getshuttertime (void)
+{
+	return msToText (shuttertime);
+}
+
+void func_setshuttertime (int8_t steps)
+{
+	shuttertime = stepMilliSeconds (shuttertime, steps);
+
+	if (shuttertime > (1 << 31) || shuttertime == 0)
+		shuttertime = 1;
+
+	if (shuttertime > 60000 * 5)	// 5 minuten max
+		shuttertime = 60000 * 5;
+}
+
+// Beeld uit
+
+uint32_t screenofftime = 60000;
+
+char *func_getscreenofftime (void)
+{
+	return secToText ((uint32_t)(screenofftime * 0.001));
+}
+
+void func_setscreenofftime (int8_t steps)
+{
+	if (screenofftime == 0 && steps < 0)
+		return;
+
+	screenofftime = stepMilliSeconds (screenofftime, steps);
+	if (screenofftime < 10000)
 	{
-		// selectie gemaakt, terug naar menu
-		RunState = 2;
-		LT_SetNewHandler (&func_menu);
+		if (steps > 0)
+				screenofftime = 10000;
+		else
+				screenofftime = 0;
 	}
+
+	if (screenofftime > 600000)
+		screenofftime = 600000;
+}
+
+// Trigger uit
+
+uint32_t deviceofftime = 1800000; // 30 min
+
+char *func_getdeviceofftime (void)
+{
+	return secToText ((uint32_t)(deviceofftime * 0.001));
+}
+
+void func_setdeviceofftime (int8_t steps)
+{
+	if (deviceofftime == 0 && steps < 0)
+		return;
+
+	deviceofftime = stepMilliSeconds (deviceofftime, steps);
+
+	if (deviceofftime < 60000)
+	{
+		if (steps > 0)
+				deviceofftime = 60000;
+		else
+				deviceofftime = 0;
+	}
+
+	if (deviceofftime > 7 * 86400000)
+		deviceofftime = 7 * 86400000;
+}
+
+/*
+ *  camera bediening
+ */
+
+uint8_t		reversecontact = 0;
+
+void Output_CamFocus (void)
+{
+	if (reversecontact)
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+	else
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+}
+
+void Output_CamDefocus (void)
+{
+	if (reversecontact)
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+	else
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+}
+
+void Output_CamTrigger (void)
+{
+	if (reversecontact)
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+	else
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+}
+
+void Output_CamUntrigger (void)
+{
+	if (reversecontact)
+		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+	else
+		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+}
+
+GPIO_PinState CAM_FocusSwitch (void)
+{
+	if (reversecontact)
+		return HAL_GPIO_ReadPin (CAM_B_GPIO_Port, CAM_B_Pin);
+	else
+		return HAL_GPIO_ReadPin (CAM_A_GPIO_Port, CAM_A_Pin);
+}
+
+void func_CamFocusSwitch (int8_t steps)
+{
+	if (steps < 0)
+		Output_CamDefocus ();
+	else if (steps > 0)
+		Output_CamFocus ();
+}
+
+void func_CamTriggerSwitch (switch_state state)
+{
+	if (state == SW_ON)
+		Output_CamTrigger ();
+	else
+		Output_CamUntrigger ();
+}
+
+void func_TriggerCamera (uint32_t shuttime)
+{
+	Output_CamTrigger ();
+	if (!shuttime)
+		triggertick = HAL_GetTick () + shuttertime;
+	else
+		triggertick = HAL_GetTick () + shuttime;
 }
 
 // Spanningen handler
@@ -139,46 +379,56 @@ void func_showscope (void)
 
 // ----- Cameravertraging timer
 
-extern uint32_t triggertick;
+static uint32_t	starttick = 0;
+
+void func_DelayEncTurn (int8_t steps)
+{
+	func_CamFocusSwitch (steps);
+
+	if (steps > 0)
+	{
+		SH1106_Clear ();
+		Output_CamFocus ();
+		SH1106_DrawString ("Druk voor foto", 20, 0, DM_FAST, NULL);
+		Dirty = 1;
+	}
+	else if (steps < 0)
+	{
+		SH1106_Clear ();
+		Output_CamDefocus ();
+		SH1106_DrawString ("Rechtsom voor focus", 7, 0, DM_FAST, NULL);
+		Dirty = 1;
+	}
+}
 
 void func_DelayTimer (void)
 {
-	static uint32_t	starttick = 0;
 	uint32_t currenttick;
 	char	timertext[8];
 
-	if (Input_GetEvent(&ENCSELsw) == SW_ON)
+	if (ENCSELsw.state == SW_ON && starttick == 0)
 	{
-		if (!HAL_GPIO_ReadPin (CAM_A_GPIO_Port, CAM_A_Pin))
-		{
-			SH1106_Clear ();
-			HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
-			SH1106_DrawString ("Druk voor foto", 20, 0, DM_FAST, NULL);
-			Dirty = 1;
-		}
-		else
+		if (CAM_FocusSwitch () == GPIO_PIN_SET )
 		{
 			// start teller
 			SH1106_Clear ();
-			triggertick = HAL_GetTick ();
-			starttick = triggertick;
-			HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+			starttick = HAL_GetTick();
+			func_TriggerCamera (1);
 		}
 	}
 
 	currenttick = HAL_GetTick();
 	if (currenttick - starttick < 1000)
 	{
-		sprintf (timertext, "%4u ms", currenttick - triggertick);
+		sprintf (timertext, "%4u ms", currenttick - starttick);
 		SH1106_DrawString (timertext, 40, 0, DM_FAST, NULL);
 		Dirty = 1;
 	}
 	else if (starttick != 0)
 	{
-		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+		Output_CamDefocus ();
 		SH1106_Clear ();
-		SH1106_DrawString ("Druk voor focus", 18, 0, DM_FAST, NULL);
+		SH1106_DrawString ("Rechtsom voor focus", 7, 0, DM_FAST, NULL);
 		Dirty = 1;
 		starttick = 0;
 	}
@@ -201,15 +451,14 @@ void func_StartDelayTimer (void)
 	SH1106_SetDisplayOffset (32);
 	SH1106_SetRefreshRate (14, 0);	// fOSC + 45%
 
-	// Zet camera scherp
-	HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
-
 	SH1106_Clear ();
-	SH1106_DrawString ("Druk knop", 36, 0, DM_FAST, NULL);
+	SH1106_DrawString ("Rechtsom voor focus", 7, 0, DM_FAST, NULL);
 
 	Dirty = 1;
 
 	LT_SetNewHandler (&func_DelayTimer);
+	LT_EncTurnCallback = &func_DelayEncTurn;
+	LT_EncPressCallback = NULL;
 	LT_FuncHandlerExit = &func_EndDelayTimer;
 }
 

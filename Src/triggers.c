@@ -50,10 +50,12 @@ uint8_t	Trig_ADCFirstRun = 1;
 void Trig_StartLightningTrigger (void)
 {
 	SH1106_Clear ();
-	UI_DrawScreen (&LT_LightningTrigScreen);
-	LT_ADCCompleteCallback = &Trig_LightningADCCallback;
 
+	LT_ADCCompleteCallback = &Trig_LightningADCCallback;
 	Trig_ADCFirstRun = 1;		// niet vergelijken in eerste run
+
+	UI_DrawScreen (&LT_LightningTrigScreen);
+	UI_DrawStatusBar ();
 
 	Dirty = 1;
 
@@ -102,8 +104,7 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 		if ((voltages[0] - minvoltage[1]) > ((maxvoltage[1] - minvoltage[1]) * 2))
 		{
 				// trigger!
-			HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
-			triggertick = HAL_GetTick ();
+			func_TriggerCamera (0);
 			if (scopecount >= SCOPESAMPLES)	// scope niet hertriggeren bij nieuwe flank tijdens sampleduur
 				scopecount = 0;
 		}
@@ -124,26 +125,32 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 void Trig_DoLightning (void)
 {
 	static uint8_t	triggerdrawn = 0;
+	static uint8_t	keepfocus = 0;
+	static GPIO_PinState focusstate = GPIO_PIN_RESET;
 
 	if (enccount > 0)
 	{
 		// focus
-		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+		Output_CamFocus ();
 		SH1106_Clear ();
 		triggerdrawn = 0;
 		UI_DrawScreen (&LT_LightningTrigDefocusScreen);
+		UI_DrawStatusBar ();
 		Dirty = 1;
 		enccount = 0;
+		keepfocus = 1;
 	}
 	else if (enccount < 0)
 	{
 		// defocus
-		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+		Output_CamDefocus ();
 		SH1106_Clear ();
 		triggerdrawn = 0;
 		UI_DrawScreen (&LT_LightningTrigScreen);
+		UI_DrawStatusBar ();
 		Dirty = 1;
 		enccount = 0;
+		keepfocus = 0;
 	}
 
 	if (HAL_GetTick() - triggertick < 2000)

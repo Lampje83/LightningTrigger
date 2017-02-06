@@ -21,10 +21,18 @@
 
 typedef struct
 {
+	void	(*edit)(int8_t);	// callback voor waardeverandering
+													// aantal encoderstappen dienen doorgegeven te worden
+	char	*(*value)(void);	// function callback voor waardeweergave
+} ui_menuparam;
+
+typedef struct
+{
 	char	name[20];
 	void	(*callback)(void*);	// callback naar functie wanneer dit item geselecteerd wordt
-	char	*(*value)(void);		// function callback naar waardebepaling
-	void	*param;			// parameter voor callback;
+	//char	*(*value)(void);		// function callback naar waardebepaling
+	void	*callbackparam;							// parameter voor callback;
+	ui_menuparam	*param;			// parameter die bewerkt kan worden
 } ui_menuitem;
 
 typedef struct
@@ -120,9 +128,10 @@ typedef	struct
 
 void UI_DrawText (ui_textitem *text, uint8_t bold);
 void UI_DrawMenu (ui_menu *menu);
+void UI_DrawStatusBar (void);
 void UI_ShowMenu (ui_menu *menu);
 void UI_ScrollMenu (int8_t steps);
-void UI_SelectMenu (void);
+void UI_SelectMenu (switch_state event);
 
 void UI_DrawScreen (ui_screen *screen);
 

@@ -48,6 +48,7 @@
 /* USER CODE BEGIN Includes */
 
 #include "stm32f1xx.h"
+#include "input.h"
 
 /* USER CODE END Includes */
 
@@ -108,8 +109,8 @@ void (*LT_ADCCompleteCallback)(uint16_t *, uint16_t);		// function pointer voor 
 void (*LT_RTCAlarmCallback)(void);						// Handler voor RTC event (timelapse etc)
 void (*LT_FuncHandler)(void);									// Algemene handler, beeldopbouw etc
 void (*LT_FuncHandlerExit)(void);							// Functie om handler af te sluiten
-void (*LT_EncTurnCallback)(int8_t *);					// Handler voor draai encoder
-void (*LT_EncPressCallback)(void);						// Handler voor drukknop
+void (*LT_EncTurnCallback)(int8_t);					// Handler voor draai encoder
+void (*LT_EncPressCallback)(switch_state state);		// Handler voor drukknop
 
 /* USER CODE END Private defines */
 

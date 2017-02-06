@@ -95,10 +95,11 @@ uint8_t scopedata[SCOPESAMPLES];
 volatile uint8_t Dirty = 0;
 uint16_t framecount;
 
-run_state RunState = WELCOME;
+// run_state RunState = WELCOME;
 uint32_t nextactiontick;
 volatile uint32_t lastinputtick;
 uint32_t triggertick = 0;
+uint32_t untrigtick = 0;
 static uint16_t scopecount = SCOPESAMPLES;
 volatile int8_t enccount;
 
@@ -238,10 +239,10 @@ void LT_SetNewHandler (void* handler)
 	}
 	LT_FuncHandler = handler;
 }
+
 void LT_ShowVoltages (void)
 {
 	SH1106_Clear ();
-	RunState = SHOWVOLTAGES;
 	LT_SetNewHandler (&func_showvoltages);
 
 	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
@@ -249,13 +250,11 @@ void LT_ShowVoltages (void)
 
 void LT_ShowScope (void)
 {
-	RunState = SHOWSCOPE;
 	LT_SetNewHandler (&func_showscope);
 }
 
 void LT_ShowClock (void)
 {
-	RunState = SHOWCLOCK;
 	LT_SetNewHandler (&func_showclock);
 
 	Dirty = 1; // zorg dat scherm getekend wordt
@@ -267,7 +266,6 @@ void LT_ShowClock (void)
 
 void LT_SetBrightness (void)
 {
-	RunState = SET_BRIGHTNESS;
 	LT_SetNewHandler (&func_setbrightness);
 
 	Dirty = 1;
@@ -299,7 +297,7 @@ void MX_RTC_Init_Without_Time (void)
   // Opgeslagen datum bij klok optellen
   date.Date += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) & 31) - 1;
   date.Month += ((HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 5) & 15) - 1;
-  date.Year += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3) >> 9);
+  date.Year += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 9);
 
   HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
 }
@@ -381,7 +379,6 @@ int main(void)
 
 	HAL_Delay (1800);
 	UI_ShowMenu (&LT_MainMenu);
-	RunState = MENU;
 	LT_SetNewHandler (&func_menu);
 
   /* USER CODE END 2 */
@@ -396,42 +393,29 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-/*
-		switch (RunState)
-		{
-			case MENU:
-				func_menu ();
-				break;
-			case SET_BRIGHTNESS:
-				func_setbrightness ();
-				break;
-			case SHOWVOLTAGES:
-				func_showvoltages ();
-				break;
-			case SHOWSCOPE:
-				func_showscope ();
-				break;
-			case SHOWCLOCK:
-				func_showclock ();
-				break;
-			case LIGHTNING_TRIGGER:
-				Trig_DoLightning ();
-				break;
-			default:
-				break;
-		}
-*/
+
 		LT_FuncHandler ();
 
+		if (enccount != 0)	// draaiknop afhandelen
+		{
+			if (LT_EncTurnCallback)
+			{
+				LT_EncTurnCallback (enccount);
+				enccount = 0;
+			}
+		}
+
+		if (Input_PeekEvent (&ENCSELsw))
+			if (LT_EncPressCallback)	// drukknop afhandelen
+				LT_EncPressCallback (Input_GetEvent (&ENCSELsw));
+
 		// Alleen als we niet al in een menu zitten, brengt een lange druk ons naar het menu
-		//if (RunState != MENU)
 		if (LT_FuncHandler != func_menu)
 		{
 			if (ENCSELsw.state == SW_LONG_PRESS)
 			{
 				enccount = 0;
 				UI_ShowMenu (&LT_MainMenu);
-				RunState = MENU;
 				LT_SetNewHandler (&func_menu);
 				Dirty = 1;
 			}
@@ -780,9 +764,11 @@ void HAL_SYSTICK_Callback (void)
 
 	// ontspanknop na bepaalde tijd loslaten
 
-	if ((HAL_GetTick() - triggertick) > 10)
+	if ((HAL_GetTick() > triggertick))
 	{
-		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+		Output_CamUntrigger ();
+		Output_CamDefocus ();
+		untrigtick = HAL_GetTick ();
 	}
 
 }
