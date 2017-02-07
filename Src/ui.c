@@ -259,7 +259,7 @@ void UI_DrawBitmap (ui_bitmapitem *bitmap)
 {
 	SH1106_DrawBitmap (UI_XAlign (bitmap->x, bitmap->width, bitmap->align),
 					   UI_YAlign (bitmap->y, bitmap->height, bitmap->align),
-					   bitmap->width, bitmap->height, bitmap->mode, bitmap->data + 6);
+					   bitmap->width, bitmap->height, bitmap->mode, *(char **)bitmap->data);
 
 }
 
@@ -338,7 +338,7 @@ void UI_DrawStatusBar (void)
 	SH1106_DrawBitmap (76, 56, bmBattery.YSize, bmBattery.XSize, DM_REPLACE, bmBattery.pData);
 
 	// Batterijbalk tekenen
-	i = (uint8_t)(((batteryvoltage - 1.9) / 1.4) * 12);
+	i = (uint8_t)(((batteryvoltage - POWER_LOW_VOLTAGE) / (POWER_HIGH_VOLTAGE - POWER_LOW_VOLTAGE)) * 12);
 	if (i >= 128) i = 0;
 	if (i > 12) i = 12;
 	if (i > 0)

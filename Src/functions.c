@@ -102,8 +102,10 @@ uint32_t stepMilliSeconds (uint32_t value, int8_t steps)
 			value += 1000 * steps;
 		else if (value < 60000)
 			value += 5000 * steps;
-		else if (value < 7200000)
+		else if (value < 1800000)
 			value += 60000 * steps;
+		else if (value < 7200000)
+			value += 300000 * steps;
 		else if (value < 86400000)
 			value += 3600000 * steps;
 		else
@@ -123,6 +125,8 @@ uint32_t stepMilliSeconds (uint32_t value, int8_t steps)
 			value += 1000 * steps;
 		else if (value <= 60000)
 			value += 5000 * steps;
+		else if (value <= 1800000)
+			value += 60000 * steps;
 		else if (value <= 7200000)
 			value += 300000 * steps;
 		else if (value <= 86400000)
@@ -229,6 +233,9 @@ void func_setdeviceofftime (int8_t steps)
 		else
 				deviceofftime = 0;
 	}
+
+	if (deviceofftime > 14 * 86400000)
+		deviceofftime = 0;
 
 	if (deviceofftime > 7 * 86400000)
 		deviceofftime = 7 * 86400000;
@@ -383,10 +390,10 @@ void func_showvoltages ()
 	memset (disp_buffer + 338, 0, 58);
 	SH1106_DrawString (text, 74, 16, DM_FAST, disp_buffer);
 
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 5; i++)
 	{
 		sprintf (text, "%1.3f V", voltages[i]);
-		SH1106_DrawString (text, 0, i * 8 + 32, DM_FAST, disp_buffer);
+		SH1106_DrawString (text, 0, i * 8 + 24, DM_FAST, disp_buffer);
 	}
 
 	switch_state encstate = Input_GetEvent(&ENCSELsw);
@@ -581,6 +588,8 @@ uint8_t RTC_IsLeapYear(uint16_t nYear)
   }
 }
 
+extern uint32_t lastinputtick;
+
 // Klok handler
 void func_showclock (void)
 {
@@ -605,18 +614,33 @@ void func_showclock (void)
 
 	HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
 	sprintf (text, "%02u:%02u:%02u", time.Hours, time.Minutes, time.Seconds);
-	UI_DrawText ((ui_textitem[]) {{ TEXT, text, 66, 44, DM_NORMAL, TOP }}, 0);
+	UI_DrawText ((ui_textitem[]) {{ TEXT, text, 66, 30, DM_NORMAL, TOP }}, 0);
+
+	UI_DrawText ((ui_textitem[]) {{ TEXT, "Terug", 66, 44, DM_NORMAL, TOP }}, 0);
+
+	UI_DrawStatusBar ();
 
 	if (enccount != 0 && !editmode)
 	{
-		editpos = (editpos + enccount) % 6;
-		if (editpos < 0) editpos += 6;
+		editpos = (editpos + enccount) % 7;
+		if (editpos < 0) editpos += 7;
 		enccount = 0;
 		Dirty = 1;
 	}
 
 	if (Input_GetEvent(&ENCSELsw) == SW_ON)
-		editmode = 1 - editmode;
+	{
+		if (editpos == 6)
+		{
+			// Terug
+			enccount = 0;
+			UI_ShowMenu (&LT_MainMenu);
+			LT_SetNewHandler (&func_menu);
+			Dirty = 1;
+		}
+		else
+			editmode = 1 - editmode;
+	}
 
 	if (editmode && ((HAL_GetTick() - tickoffset) % 600) >= 300)
 	{
@@ -643,16 +667,16 @@ void func_showclock (void)
 			SH1106_FillBox (71, 15, 25, 9, clr);
 			break;
 		case 3:		// uren
-			SH1106_FillBox (41, 43, 13, 9, clr);
+			SH1106_FillBox (41, 29, 13, 9, clr);
 			break;
 		case 4:		// minuten
-			SH1106_FillBox (59, 43, 13, 9, clr);
+			SH1106_FillBox (59, 29, 13, 9, clr);
 			break;
 		case 5:		// seconden
-			SH1106_FillBox (77, 43, 13, 9, clr);
+			SH1106_FillBox (77, 29, 13, 9, clr);
 			break;
 		case 6:		// terug
-			SH1106_FillBox (77, 43, 13, 9, clr);
+			SH1106_FillBox (0, 43, 128, 9, clr);
 			break;
 		default:
 			break;
@@ -717,8 +741,11 @@ void func_showclock (void)
 		else
 			HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
 
+
 		enccount = 0;
 		tickoffset = HAL_GetTick ();
+		// bijwerken zodat beeld niet meteen uitschakelt
+		lastinputtick = hrtc.Instance->CNTL;
 		Dirty = 1;
 	}
 

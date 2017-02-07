@@ -60,10 +60,10 @@
 #define ENC_SEL_GPIO_Port GPIOA
 #define LDR_Pin GPIO_PIN_1
 #define LDR_GPIO_Port GPIOA
-#define BATV_Pin GPIO_PIN_2
-#define BATV_GPIO_Port GPIOA
-#define EXT_TRIG_Pin GPIO_PIN_3
+#define EXT_TRIG_Pin GPIO_PIN_2
 #define EXT_TRIG_GPIO_Port GPIOA
+#define BATV_Pin GPIO_PIN_3
+#define BATV_GPIO_Port GPIOA
 #define DISP_NSS_Pin GPIO_PIN_4
 #define DISP_NSS_GPIO_Port GPIOA
 #define DISP_SCK_Pin GPIO_PIN_5
@@ -88,15 +88,15 @@
 #define CAM_A_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
-#define NUM_SAMPLES			384
+#define NUM_SAMPLES			512
 #define SCOPESAMPLES		1024
 
 #define POWER_HIGH_VOLTAGE	3.2			// max batterijspanning
-#define POWER_LOW_VOLTAGE		2.0			// min batterijspanning
+#define POWER_LOW_VOLTAGE		2.2			// min batterijspanning
 
 /* Private variables ---------------------------------------------------------*/
 
-static uint16_t scopecount;
+extern volatile uint16_t scopecount;
 volatile float						batteryvoltage;
 
 /* Private function prototypes -----------------------------------------------*/

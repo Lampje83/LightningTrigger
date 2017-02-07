@@ -101,8 +101,9 @@ uint32_t nextactiontick;
 volatile uint32_t lastinputtick;
 uint32_t triggertick = 0;
 uint32_t untrigtick = 0;
-static uint16_t scopecount = SCOPESAMPLES;
 volatile int8_t enccount;
+extern uint8_t brightness;
+extern uint8_t reversecontact;
 
 /* USER CODE END PV */
 
@@ -114,6 +115,9 @@ static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
 
 /* USER CODE BEGIN PFP */
+
+void LoadSettings (void);
+void SaveSettings (void);
 
 static void MX_ADC1_Init(void);
 static void MX_RTC_Init(void);
@@ -206,6 +210,8 @@ void EnterDeepSleep (void)
 
 	SH1106_TurnOff();
 
+	SaveSettings ();
+
 	while (Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
 					&ENCSELsw) != SW_OFF)
 	;
@@ -274,6 +280,7 @@ void LT_SetBrightness (void)
 void MX_RTC_Init_Without_Time (void)
 {
 	RTC_DateTypeDef date;
+	uint16_t				date_backup = 0;
 
 	/**Initialize RTC Only
 	*/
@@ -290,16 +297,18 @@ void MX_RTC_Init_Without_Time (void)
   HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
 
   // Controleer of er iets in het backupgeheugen staat
-  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == 0)
-	  // leeg, afbreken
-	  return;
+  if (EE_ReadVariable (0x1005, &date_backup))
+		date_backup = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
 
-  // Opgeslagen datum bij klok optellen
-  date.Date += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) & 31) - 1;
-  date.Month += ((HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 5) & 15) - 1;
-  date.Year += (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) >> 9);
+  if (date_backup != 0)
+		{
+			// Opgeslagen datum bij klok optellen
+			date.Date += (date_backup & 31) - 1;
+			date.Month += ((date_backup >> 5) & 15) - 1;
+			date.Year += (date_backup >> 9);
 
-  HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
+			HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
+		}
 }
 
 /* USER CODE END 0 */
@@ -345,6 +354,11 @@ int main(void)
 		}
 	}
 
+	// EEPROM emulatie initializeren
+	EE_Init ();
+
+	LoadSettings ();
+
 	// Geen tijd instellen, RTC blijft doorlopen tijdens standby
 	MX_RTC_Init_Without_Time ();
 
@@ -371,7 +385,7 @@ int main(void)
 	// fade in
 	for (i = 0; i < 32; i++)
 	{
-		SH1106_SetBrightness ((uint8_t)((i * i) >> 3));
+		SH1106_SetBrightness ((uint8_t)((i * i) >> 2) * brightness / 256);
 		HAL_Delay (10);
 	}
 
@@ -510,7 +524,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 3;
+  hadc1.Init.NbrOfConversion = 4;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -540,6 +554,15 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = 3;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure Regular Channel 
+    */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -662,7 +685,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ENC_SEL_Pin */
-  GPIO_InitStruct.Pin = ENC_SEL_Pin;
+  GPIO_InitStruct.Pin = ENC_SEL_Pin | EXT_TRIG_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(ENC_SEL_GPIO_Port, &GPIO_InitStruct);
@@ -710,8 +733,7 @@ void HAL_ADC_ConvCpltCallback (ADC_HandleTypeDef* hadc)
 	}
 
 	// batterijspanning uitlezen
-	batteryvoltage = (float)ADC_Samples[NUM_SAMPLES - 1] * POWER_LOW_VOLTAGE
-								 / ((float)ADC_Samples[NUM_SAMPLES - 2] / (POWER_HIGH_VOLTAGE - POWER_LOW_VOLTAGE));
+	batteryvoltage = (float)ADC_Samples[NUM_SAMPLES - 2] * 2.4 / (float)ADC_Samples[NUM_SAMPLES - 3];
 	ADC_Done++;
 }
 
@@ -723,8 +745,6 @@ void HAL_ADC_ConvHalfCpltCallback (ADC_HandleTypeDef* hadc)
 		LT_ADCCompleteCallback (ADC_Samples, NUM_SAMPLES >> 1);
 	}
 }
-
-extern uint8_t brightness;
 
 void HAL_SYSTICK_Callback (void)
 {
@@ -818,6 +838,94 @@ void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
 	if (time.Seconds == 0)
 		// UI laten weten dat scherm bijgewerkt moet worden
 		MinuteChanged = 1;
+}
+
+/*
+ * Instellingen:
+ *
+ * 0 - Helderheid (8-bit)
+ *   - Camerapolariteit (1-bit)
+ * 1 - Beeld uit (16-bit)
+ * 2 - Trigger uit (16-bit)
+ * 3+4 - Shutter time (32-bit)
+ * 5 - Datum
+ */
+
+uint16_t	VirtAddVarTab[NB_OF_VAR] = { 0x1000, 0x1001, 0x1002, 0x1003, 0x1004, 0x1005 };
+
+void SaveSettings (void)
+{
+	uint16_t	registers[NB_OF_VAR];
+	uint8_t		index;
+	uint16_t	readval;	// opslag om eeprom met nieuwe waarde te vergelijken
+	RTC_DateTypeDef	date;
+
+	HAL_FLASH_Unlock ();
+
+	EE_Init ();
+
+	HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
+
+	// registers vullen
+	registers[0] = (brightness << 8) |
+								 reversecontact;
+	registers[1] = screenofftime / 1000;
+	registers[2] = deviceofftime / 60000;
+	registers[3] = shuttertime & 65535;
+	registers[4] = shuttertime >> 16;
+	registers[5] = (date.Date & 31) |
+								 ((date.Month & 15) << 5) |
+								 ((date.Year & 127) << 9);
+
+	for (index = 0; index < NB_OF_VAR; index++)
+	{
+		if (!EE_ReadVariable (index + 1000, &readval))
+		{
+			// variable bestaat, vergelijken
+			if (readval == registers[index])
+				continue;	// sla write opdracht over
+		}
+		EE_WriteVariable (index + 0x1000, registers[index]);
+	}
+
+	HAL_FLASH_Lock ();
+}
+
+void LoadSettings (void)
+{
+	uint16_t	registers[NB_OF_VAR];
+	uint8_t		index;
+	uint16_t	validflags = 0;
+	RTC_DateTypeDef	date;
+
+	for (index = 0; index < NB_OF_VAR; index++)
+	{
+		if (EE_ReadVariable (index + 0x1000, &registers[index]) == 0)
+			validflags |= 1 << index;	// status van opdracht opslaan
+			// het kan zijn, dat de code gewijzigd is, en er nieuwe variabelen zijn
+			// die nog niet in het geheugen staan
+	}
+
+	if (validflags & 1)
+	{
+		brightness = registers[0] >> 8;
+		reversecontact = registers[0] & 1;
+	}
+	if (validflags & 2) screenofftime = registers[1] * 1000;
+	if (validflags & 4) deviceofftime = registers[2] * 60000;
+	if ((validflags & 24) == 24) shuttertime = registers[3] | (registers[4] << 16);
+
+	/* WERKT NIET voordat RTC geïnitialiseerd is, verplaatst naar RTC_Init
+	if (validflags & 32)
+	{
+		// datum instellen
+	  date.Date = registers[5] & 31;
+	  date.Month = (registers[5] >> 5) & 15;
+	  date.Year = registers[5] >> 9;
+
+	  HAL_RTC_SetDate (&hrtc, &date, RTC_FORMAT_BIN);
+	}
+	*/
 }
 
 /* USER CODE END 4 */
