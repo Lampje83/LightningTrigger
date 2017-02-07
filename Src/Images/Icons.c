@@ -177,9 +177,11 @@ GUI_CONST_STORAGE GUI_BITMAP bmExternal = {
 static GUI_CONST_STORAGE unsigned char _acCamera[] = {
 	_XXXXXX_,
 	_X____X_,
+	_X____X_,
 	_X__X__X,
 	_X_X_X_X,
 	_X__X__X,
+	_X____X_,
 	_X____X_,
 	_XXXXXX_,
 	________
@@ -187,10 +189,32 @@ static GUI_CONST_STORAGE unsigned char _acCamera[] = {
 
 GUI_CONST_STORAGE GUI_BITMAP bmCamera = {
   8, // xSize
-  8, // ySize
+  10, // ySize
   1, // BytesPerLine
   1, // BitsPerPixel
   _acCamera,  // Pointer to picture data (indices)
+  &_PalIcon   // Pointer to palette
+};
+
+static GUI_CONST_STORAGE unsigned char _acFillCamera[] = {
+	_XXXXXX_,
+	_XXXXXX_,
+	_XXXXXX_,
+	_XXX_XXX,
+	_XX___XX,
+	_XXX_XXX,
+	_XXXXXX_,
+	_XXXXXX_,
+	_XXXXXX_,
+	________
+};
+
+GUI_CONST_STORAGE GUI_BITMAP bmFillCamera = {
+  8, // xSize
+  10, // ySize
+  1, // BytesPerLine
+  1, // BitsPerPixel
+  _acFillCamera,  // Pointer to picture data (indices)
   &_PalIcon   // Pointer to palette
 };
 

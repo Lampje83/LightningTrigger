@@ -42,6 +42,7 @@ void	Trig_StopAllTriggers (void)
 
 extern ui_screen LT_LightningTrigScreen;
 extern ui_screen LT_LightningTrigDefocusScreen;
+extern GUI_CONST_STORAGE GUI_BITMAP bmBliksem;
 extern GUI_CONST_STORAGE GUI_BITMAP bmBliksemSmall;
 
 uint8_t	Trig_ADCFirstRun = 1;
@@ -121,19 +122,35 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 
 // UI handler voor bliksemtrigger
 
+extern uint32_t untrigtick;
+extern uint8_t screenoff;
 
 void Trig_DoLightning (void)
 {
-	static uint8_t	triggerdrawn = 0;
+	static uint8_t	picturedrawn = 0;
 	static uint8_t	keepfocus = 0;
 	static GPIO_PinState focusstate = GPIO_PIN_RESET;
+	static uint8_t	wasscreenoff = 0;
+
+	if (screenoff < wasscreenoff)
+		// scherm opnieuw tekenen
+		enccount = CAM_FocusSwitch() * 2 - 1;
+	else if (screenoff > wasscreenoff)
+	{
+		// grote bliksem alvast intekenen
+		SH1106_Clear ();
+		SH1106_DrawBitmap (64 - (bmBliksem.YSize >> 1), 32 - (bmBliksem.XSize >> 1),
+											 bmBliksem.YSize, bmBliksem.XSize, DM_NORMAL, bmBliksem.pData);
+	}
+
+	wasscreenoff = screenoff;
 
 	if (enccount > 0)
 	{
 		// focus
 		Output_CamFocus ();
 		SH1106_Clear ();
-		triggerdrawn = 0;
+		picturedrawn = 0;
 		UI_DrawScreen (&LT_LightningTrigDefocusScreen);
 		UI_DrawStatusBar ();
 		Dirty = 1;
@@ -145,7 +162,7 @@ void Trig_DoLightning (void)
 		// defocus
 		Output_CamDefocus ();
 		SH1106_Clear ();
-		triggerdrawn = 0;
+		picturedrawn = 0;
 		UI_DrawScreen (&LT_LightningTrigScreen);
 		UI_DrawStatusBar ();
 		Dirty = 1;
@@ -153,20 +170,43 @@ void Trig_DoLightning (void)
 		keepfocus = 0;
 	}
 
+	focusstate = CAM_FocusSwitch ();
+
+	if (keepfocus && (HAL_GetTick() - untrigtick > 100))
+		if (CAM_FocusSwitch () == GPIO_PIN_RESET)
+		{
+			Output_CamFocus ();
+		}
+
 	if (HAL_GetTick() - triggertick < 2000)
 	{
-		if (!triggerdrawn)
+		if (!picturedrawn)
 		{
-			SH1106_DrawBitmap (52, 26, bmBliksemSmall.YSize, bmBliksemSmall.XSize, DM_NORMAL, bmBliksemSmall.pData);
-			Dirty = 1;
-			triggerdrawn = 1;
+			if (!screenoff)
+			{
+				// kleine bliksem weergeven
+				SH1106_DrawBitmap (52, 26, bmBliksemSmall.YSize, bmBliksemSmall.XSize, DM_NORMAL, bmBliksemSmall.pData);
+				Dirty = 1;
+			}
+			else
+			{
+				SH1106_TurnOn();
+			}
+			picturedrawn = 1;
 		}
 	}
-	else if (triggerdrawn)
+	else if (picturedrawn)
 	{
-		SH1106_FillBox (52, 26, bmBliksemSmall.YSize, bmBliksemSmall.XSize, DM_INVERT);
-		triggerdrawn = 0;
-		Dirty = 1;
+		if (!screenoff)
+		{
+			SH1106_FillBox (52, 26, bmBliksemSmall.YSize, bmBliksemSmall.XSize, DM_INVERT);
+			Dirty = 1;
+		}
+		else
+		{
+			SH1106_TurnOff();
+		}
+		picturedrawn = 0;
 	}
 
 }

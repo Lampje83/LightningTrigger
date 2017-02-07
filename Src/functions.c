@@ -14,17 +14,19 @@
 extern uint32_t triggertick;
 
 // Menu handler
-void func_menu ()
+extern uint8_t MinuteChanged;
+
+void func_menu (void)
 {
 	// niets doen!
 
 	if (!LT_FuncHandlerExit)
 		LT_FuncHandlerExit = &func_menuexit;
 
-	if (enccount != 0)
+	if (MinuteChanged)
 	{
-		// UI_ScrollMenu (enccount);
-		// enccount = 0;
+		UI_DrawMenu (NULL);
+		MinuteChanged = 0;
 	}
 }
 
@@ -41,7 +43,7 @@ extern void func_menu (void);
  *	Parameters
  */
 
-char msToText (uint32_t milliseconds)
+char *msToText (uint32_t milliseconds)
 {
 	static char text[6];
 
@@ -134,7 +136,7 @@ uint32_t stepMilliSeconds (uint32_t value, int8_t steps)
 
 // Helderheid
 
-static uint8_t	brightness = 0;
+uint8_t	brightness = 128;
 
 char *func_getbrightness (void)
 {
@@ -147,7 +149,7 @@ char *func_getbrightness (void)
 
 void func_setbrightness (int8_t	steps)
 {
-	if (steps != 0)
+if (steps != 0)
 	{
 		brightness += steps * 5;
 		// enccount = 0;
@@ -232,6 +234,37 @@ void func_setdeviceofftime (int8_t steps)
 		deviceofftime = 7 * 86400000;
 }
 
+uint8_t	screenoff = 0;
+void (*LT_OldEncTurnCallback)(int8_t);					// Handler voor draai encoder
+void (*LT_OldEncPressCallback)(switch_state state);		// Handler voor drukknop
+
+// scherm inschakelen en oude functies herstellen
+// parameter is dummy zodat draai-callback veilig vervangen kan worden
+void func_setscreenon (int8_t dummy)
+{
+	// scherm inschakelen
+	SH1106_TurnOn ();
+	SH1106_SetBrightness (brightness);
+	screenoff = 0;
+
+	LT_EncTurnCallback = LT_OldEncTurnCallback;
+	LT_EncPressCallback = LT_OldEncPressCallback;
+}
+
+void func_setscreenoff (void)
+{
+	if (screenoff)
+		return;
+
+	LT_OldEncTurnCallback = LT_EncTurnCallback;
+	LT_OldEncPressCallback = LT_EncPressCallback;
+
+	LT_EncTurnCallback = &func_setscreenon;
+	LT_EncPressCallback = &func_setscreenon;
+	SH1106_TurnOff ();
+	screenoff = 1;
+}
+
 /*
  *  camera bediening
  */
@@ -278,6 +311,14 @@ GPIO_PinState CAM_FocusSwitch (void)
 		return HAL_GPIO_ReadPin (CAM_A_GPIO_Port, CAM_A_Pin);
 }
 
+GPIO_PinState CAM_TriggerSwitch (void)
+{
+	if (reversecontact)
+		return HAL_GPIO_ReadPin (CAM_A_GPIO_Port, CAM_A_Pin);
+	else
+		return HAL_GPIO_ReadPin (CAM_B_GPIO_Port, CAM_B_Pin);
+}
+
 void func_CamFocusSwitch (int8_t steps)
 {
 	if (steps < 0)
@@ -294,9 +335,13 @@ void func_CamTriggerSwitch (switch_state state)
 		Output_CamUntrigger ();
 }
 
+extern uint32_t untrigtick;
+
 void func_TriggerCamera (uint32_t shuttime)
 {
 	Output_CamTrigger ();
+	untrigtick = 0;
+
 	if (!shuttime)
 		triggertick = HAL_GetTick () + shuttertime;
 	else
@@ -460,6 +505,58 @@ void func_StartDelayTimer (void)
 	LT_EncTurnCallback = &func_DelayEncTurn;
 	LT_EncPressCallback = NULL;
 	LT_FuncHandlerExit = &func_EndDelayTimer;
+}
+
+static GPIO_PinState focusstate = GPIO_PIN_RESET;
+static GPIO_PinState triggerstate = GPIO_PIN_RESET;
+
+extern ui_screen	*LT_ManualTrigScreen;
+extern ui_screen	*LT_ManualTrigDefocusScreen;
+
+void func_manualtrigger (void)
+{
+	if (CAM_FocusSwitch () != focusstate)
+	{
+		focusstate = CAM_FocusSwitch ();
+
+		SH1106_Clear ();
+		if (focusstate == GPIO_PIN_SET)
+			UI_DrawScreen (&LT_ManualTrigDefocusScreen);
+		else
+			UI_DrawScreen (&LT_ManualTrigScreen);
+
+		UI_DrawStatusBar ();
+
+		Dirty = 1;
+	}
+	else if (CAM_TriggerSwitch () != triggerstate)
+	{
+		triggerstate = CAM_TriggerSwitch();
+		UI_DrawStatusBar ();
+		Dirty = 1;
+	}
+}
+
+void func_EndManualTrigger (void)
+{
+	Output_CamUntrigger();
+	Output_CamDefocus();
+}
+
+void func_StartManualTrigger (void)
+{
+	SH1106_Clear ();
+	UI_DrawScreen (&LT_ManualTrigScreen);
+	UI_DrawStatusBar ();
+
+	Dirty = 1;
+
+	focusstate = GPIO_PIN_RESET;
+
+	LT_SetNewHandler (&func_manualtrigger);
+	LT_EncTurnCallback = &func_CamFocusSwitch;
+	LT_EncPressCallback = &func_CamTriggerSwitch;
+	LT_FuncHandlerExit = &func_EndManualTrigger;
 }
 
 uint8_t RTC_IsLeapYear(uint16_t nYear)

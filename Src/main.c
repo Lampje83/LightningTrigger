@@ -52,6 +52,7 @@
 #include "functions.h"
 #include "input.h"
 #include "triggers.h"
+#include "eeprom.h"
 
 /* USER CODE END Includes */
 
@@ -245,7 +246,6 @@ void LT_ShowVoltages (void)
 	SH1106_Clear ();
 	LT_SetNewHandler (&func_showvoltages);
 
-	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
 }
 
 void LT_ShowScope (void)
@@ -380,6 +380,9 @@ int main(void)
 	HAL_Delay (1800);
 	UI_ShowMenu (&LT_MainMenu);
 	LT_SetNewHandler (&func_menu);
+
+	lastinputtick = hrtc.Instance->CNTL;
+	HAL_RTCEx_SetSecond_IT(&hrtc);	// RTC interrupt inschakelen
 
   /* USER CODE END 2 */
 
@@ -721,6 +724,8 @@ void HAL_ADC_ConvHalfCpltCallback (ADC_HandleTypeDef* hadc)
 	}
 }
 
+extern uint8_t brightness;
+
 void HAL_SYSTICK_Callback (void)
 {
 	switch_state b;
@@ -731,6 +736,7 @@ void HAL_SYSTICK_Callback (void)
 	b = Test_Input (HAL_GPIO_ReadPin (ENC_B_GPIO_Port, ENC_B_Pin), &ENCBsw);
 	Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin), &ENCSELsw);
 
+	// Controleren voor zeer lange druk
 	if (ENCSELsw.state > SW_LONG_PRESS)
 	{
 		// in diepe slaap gaan
@@ -742,17 +748,25 @@ void HAL_SYSTICK_Callback (void)
 	{
 		// stijgende flank
 		enccount++;
-		lastinputtick = tick;
+		if (hrtc.Instance->CNTL > lastinputtick + 30)
+			SH1106_SetBrightness (brightness);
+		lastinputtick = hrtc.Instance->CNTL;
 	}
 	else if (b == SW_FALLING && (ENCAsw.state == SW_ON))
 	{
 		// dalende flank
 		enccount--;
-		lastinputtick = tick;
+		if (hrtc.Instance->CNTL > lastinputtick + 30)
+			SH1106_SetBrightness (brightness);
+		lastinputtick = hrtc.Instance->CNTL;
 	}
 
 	if (ENCSELsw.state != SW_OFF)
-		lastinputtick = tick;
+	{
+		if (hrtc.Instance->CNTL > lastinputtick + 30)
+			SH1106_SetBrightness (brightness);
+		lastinputtick = hrtc.Instance->CNTL;
+	}
 
 	if ((tick % 1000) == 0)
 	{
@@ -764,7 +778,7 @@ void HAL_SYSTICK_Callback (void)
 
 	// ontspanknop na bepaalde tijd loslaten
 
-	if ((HAL_GetTick() > triggertick))
+	if ((HAL_GetTick() > triggertick) && untrigtick == 0)
 	{
 		Output_CamUntrigger ();
 		Output_CamDefocus ();
@@ -779,10 +793,31 @@ void HAL_SYSTICK_Callback (void)
   *                the configuration information for RTC.
   * @retval None
   */
+
+uint8_t	MinuteChanged = 0;
+
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc)
 {
+	RTC_TimeTypeDef time;
 	// zorg ervoor dat scherm opnieuw getekend wordt
 	Dirty = 1;
+
+	HAL_RTC_GetTime (&hrtc, &time, RTC_FORMAT_BIN);
+
+	if (hrtc->Instance->CNTL > lastinputtick + 30)
+		// scherm dimmen
+		SH1106_SetBrightness (0);
+
+	if (screenofftime > 0)
+	{
+		if (hrtc->Instance->CNTL > lastinputtick + screenofftime / 1000)
+			// scherm uitschakelen
+			func_setscreenoff ();
+	}
+
+	if (time.Seconds == 0)
+		// UI laten weten dat scherm bijgewerkt moet worden
+		MinuteChanged = 1;
 }
 
 /* USER CODE END 4 */

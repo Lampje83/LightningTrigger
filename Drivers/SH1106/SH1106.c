@@ -83,12 +83,18 @@ void SH1106_Clear (void)
 
 void SH1106_TurnOn (void)
 {
+	if (!SH1106_WaitForRefresh ())
+		return;
+
 	HAL_GPIO_WritePin (SH1106_DC, GPIO_PIN_RESET);	// stel command mode in
 	SH1106_WriteByte(0xAF);    /*display ON*/
 }
 
 void SH1106_TurnOff (void)
 {
+	if (!SH1106_WaitForRefresh ())
+		return;
+
 	HAL_GPIO_WritePin (SH1106_DC, GPIO_PIN_RESET);	// stel command mode in
 	SH1106_WriteByte(0xAE);    /*display OFF*/
 }

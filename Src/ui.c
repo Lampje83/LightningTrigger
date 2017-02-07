@@ -51,8 +51,6 @@ const ui_menu LT_CameraMenu = {
 		}
 };
 
-extern uint8_t	brightness;
-
 // parameters
 const ui_menuparam	P_Brightness = { &func_setbrightness, &func_getbrightness };
 const ui_menuparam	P_DisplayOff = { &func_setscreenofftime, &func_getscreenofftime };
@@ -78,7 +76,7 @@ const ui_menu LT_ModeMenu = {
 			{ "Bliksem", &Trig_StartLightningTrigger },
 			{ "Timelapse" },
 			{ "Tijdstip" },
-			{ "Afstandsbediening" },
+			{ "Afstandsbediening", &func_StartManualTrigger },
 			{ "Ext. trigger" },
 			{ "Stoppen", &Trig_StopAllTriggers },
 			{ "Terug", &UI_ShowMenu, &LT_MainMenu }
@@ -96,17 +94,54 @@ const ui_menu	LT_MainMenu = {
 	}
 };
 
+const ui_menu LT_LightningMenu = {
+		"Bliksem instellen",
+		4,
+		(ui_menuitem[]) {
+			{ "Schaal" },		// ruisbandbreedte (%) / gem. spanning (%) / absolute spanning (%)
+			{ "Gevoeligheid" },
+			{ "Flanktijd" },
+			{ "Terug" }
+		}
+};
+
+const ui_menu LT_TimelapseMenu = {
+		"Timelapse instellen",
+		4,
+		(ui_menuitem[]) {
+			{ "Aantal foto's" },		// ruisbandbreedte / gem. spanning / absolute spanning
+			{ "Interval" },
+			{ "FPS" },
+			{ "Filmduur" },
+			{ "Tijdspanne" },
+			{ "Start na" },
+			{ "Terug" }
+		}
+};
+
+const ui_menu LT_ExtTrigMenu = {
+		"Timelapse instellen",
+		4,
+		(ui_menuitem[]) {
+			{ "Modus" },		// niveau / flank
+			{ "Polariteit" },	// positief / negatief
+			{ "Flanktijd" },
+			{ "Hysteresis" },
+			{ "Terug" }
+		}
+};
+
 extern GUI_CONST_STORAGE GUI_BITMAP bmBliksemSmall;
 
 const ui_screen LT_StartScreen = {
 	5,
 	(void *[]){
 	(ui_textitem[1]) { BOLDTEXT, "BliksemTrigger", 64, 0, DM_NORMAL, TOP },
-	(ui_textitem[1]) { TEXT, "Versie 2.0", 72, 16, DM_FAST, TOP },
-	(ui_textitem[1]) { TEXT, "(c) 2017", 72, 32, DM_FAST, TOP },
+	(ui_textitem[1]) { TEXT, "Versie 2.0", 64, 16, DM_FAST, TOP },
+	(ui_textitem[1]) { TEXT, "(c) 2017", 64, 32, DM_FAST, TOP },
 	(ui_textitem[1]) { TEXT, "Erik van Beilen", 64, 48, DM_FAST, TOP },
 	(ui_bitmapitem[1]) { BITMAP, 0, 18, 16, 24,
-											 DM_REPLACE, TOPLEFT, &bmBliksemSmall.pData }
+											 DM_NORMAL, TOPLEFT, &bmBliksemSmall.pData }
 	}
 };
 
@@ -261,18 +296,39 @@ void UI_DrawScreen (ui_screen *screen)
 
 extern GUI_CONST_STORAGE GUI_BITMAP bmBattery;
 extern GUI_CONST_STORAGE GUI_BITMAP bmLightning;
+extern GUI_CONST_STORAGE GUI_BITMAP bmCamera;
+extern GUI_CONST_STORAGE GUI_BITMAP bmFillCamera;
 
 void UI_DrawStatusBar (void)
 {
 	uint8_t i;
 	char		text[22];
+	uint8_t nexticonpos = 76;
+
 	RTC_TimeTypeDef	time;
 
 	HAL_RTC_GetTime (&hrtc, &time, RTC_FORMAT_BIN);
 
+	memset (disp_buffer + XSIZE * 7, 0, XSIZE);
+
 	// Triggermodus weergeven
 	if (LT_ADCCompleteCallback == &Trig_LightningADCCallback)
-		SH1106_DrawBitmap (68, 56, bmLightning.YSize, bmLightning.XSize, DM_REPLACE, bmLightning.pData);
+	{
+		nexticonpos -= bmLightning.YSize + 2;
+		SH1106_DrawBitmap (nexticonpos, 56, bmLightning.YSize, bmLightning.XSize, DM_REPLACE, bmLightning.pData);
+	}
+
+	// Camerastatus weergeven
+	if (CAM_TriggerSwitch () == GPIO_PIN_SET)
+	{
+		nexticonpos -= bmFillCamera.YSize + 2;
+		SH1106_DrawBitmap (nexticonpos, 56, bmFillCamera.YSize, bmFillCamera.XSize, DM_REPLACE, bmFillCamera.pData);
+	}
+	else if (CAM_FocusSwitch () == GPIO_PIN_SET)
+	{
+		nexticonpos -= bmCamera.YSize + 2;
+		SH1106_DrawBitmap (nexticonpos, 56, bmCamera.YSize, bmCamera.XSize, DM_REPLACE, bmCamera.pData);
+	}
 
 	// Klok tekenen
 	sprintf (text, "%02u:%02u", time.Hours, time.Minutes);
@@ -343,14 +399,14 @@ void UI_DrawMenu (ui_menu *menu)
 	Dirty = 1;
 }
 
-extern RTC_HandleTypeDef hrtc;
+//extern RTC_HandleTypeDef hrtc;
 
 void UI_ShowMenu (ui_menu *menu)
 {
     activemenu = menu;
     selecteditem = 0;
 
-  	HAL_RTCEx_DeactivateSecond(&hrtc);	// RTC interrupt uitschakelen
+  	// HAL_RTCEx_DeactivateSecond(&hrtc);	// RTC interrupt uitschakelen
 
   	UI_ScrollMenu (0);	// zorg ervoor dat selectie in beeld is
     UI_DrawMenu (menu);

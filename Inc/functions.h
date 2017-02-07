@@ -17,10 +17,12 @@ void func_menuexit (void);				// subroutine voor verlaten menu
 void func_showvoltages (void);		// subroutine om spanningen af te lezen
 void func_showclock (void);				// subroutine om klok weer te geven
 void func_showscope (void);				// triggerdata weergeven
-void func_StartDelayTimer (void);
+void func_StartDelayTimer (void);			// camera delay test starten
+void func_StartManualTrigger (void);	// handbediening starten
 
 char *func_getbrightness (void);	// functie om ingestelde helderheid in tekst om te zetten
 void func_setbrightness (int8_t steps);		// helderheid instellen
+extern void func_setscreenoff (void);
 
 // camera contacten
 
@@ -28,6 +30,8 @@ void Output_CamTrigger (void);
 void Output_CamUntrigger (void);
 void func_CamFocusSwitch (int8_t steps);
 void func_TriggerCamera (uint32_t shuttime);
+extern GPIO_PinState CAM_FocusSwitch (void);
+extern GPIO_PinState CAM_TriggerSwitch (void);
 
 // sluitertijd
 extern uint32_t	shuttertime;
