@@ -210,8 +210,6 @@ void EnterDeepSleep (void)
 
 	SH1106_TurnOff();
 
-	SaveSettings ();
-
 	while (Test_Input (HAL_GPIO_ReadPin (ENC_SEL_GPIO_Port, ENC_SEL_Pin),
 					&ENCSELsw) != SW_OFF)
 	;
@@ -223,13 +221,20 @@ void EnterDeepSleep (void)
 		ENCAsw.state = ENCBsw.state;
 	}
 
-	HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
+	// controleren of RTC gestart is.
+	if (hrtc.State != HAL_RTC_STATE_RESET)
+	{
+		// zo ja, instellingen opslaan
+		SaveSettings ();
 
-	// Datum opslaan in backup register
-    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1,
-												(date.Date & 31) |
-												((date.Month & 15) << 5) |
-												((date.Year & 127) << 9));
+		HAL_RTC_GetDate (&hrtc, &date, RTC_FORMAT_BIN);
+
+		// Datum opslaan in backup register
+			HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1,
+													(date.Date & 31) |
+													((date.Month & 15) << 5) |
+													((date.Year & 127) << 9));
+	}
 
 	HAL_PWR_EnableWakeUpPin (PWR_WAKEUP_PIN1);
 	HAL_PWR_EnterSTANDBYMode ();
