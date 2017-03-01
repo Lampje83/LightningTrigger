@@ -48,6 +48,10 @@ extern uint32_t deviceofftime;
 extern char *func_getdeviceofftime (void);
 extern void func_setdeviceofftime (int8_t steps);
 
+// Cameracontact
+extern char *func_getcontact (void);
+extern void func_setcontact (int8_t steps);
+
 extern volatile uint8_t Dirty;
 extern volatile uint16_t ADC_Done, ADC_Count;
 

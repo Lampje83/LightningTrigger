@@ -278,6 +278,19 @@ void func_setscreenoff (void)
 
 uint8_t		reversecontact = 0;
 
+char *func_getcontact (void)
+{
+	if (!reversecontact)
+		return "A>B";
+	else
+		return "B>A";
+}
+
+void func_setcontact (int8_t steps)
+{
+	if (steps & 1) reversecontact = 1 - reversecontact;
+}
+
 void Output_CamFocus (void)
 {
 	if (reversecontact)
