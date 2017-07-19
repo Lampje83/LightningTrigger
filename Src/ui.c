@@ -106,6 +106,17 @@ const ui_menu LT_LightningMenu = {
 		}
 };
 
+const ui_menu LT_LightningModeMenu = {
+		"Bliksem",
+		4,
+		(ui_menuitem[]) {
+			{ "Actief" }, // JA / NEE
+			{ "Prefocus" }, // JA / NEE
+			{ "Instellen", &UI_ShowMenu, &LT_LightningMenu },
+			{ "Terug", &UI_ShowMenu, &LT_MainMenu }
+		}
+};
+
 const ui_menu LT_TimelapseMenu = {
 		"Timelapse instellen",
 		4,

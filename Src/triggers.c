@@ -107,7 +107,7 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 
 	if (!Trig_ADCFirstRun)
 	{
-		if ((voltages[0] - minvoltage[1]) > ((maxvoltage[1] - minvoltage[1]) * 2))
+		if ((voltages[0] - minvoltage[1]) > ((maxvoltage[1] - minvoltage[1]) * 4))
 		{
 				// trigger!
 			func_TriggerCamera (0);

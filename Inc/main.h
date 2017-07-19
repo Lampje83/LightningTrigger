@@ -91,8 +91,8 @@
 #define NUM_SAMPLES			512
 #define SCOPESAMPLES		1024
 
-#define POWER_HIGH_VOLTAGE	3.2			// max batterijspanning
-#define POWER_LOW_VOLTAGE		2.2			// min batterijspanning
+#define POWER_HIGH_VOLTAGE	4.0			// max batterijspanning
+#define POWER_LOW_VOLTAGE		2.8			// min batterijspanning
 
 /* Private variables ---------------------------------------------------------*/
 

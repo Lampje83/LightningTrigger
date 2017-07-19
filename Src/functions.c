@@ -297,6 +297,9 @@ void Output_CamFocus (void)
 		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
 	else
 		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
+
+	// UI opnieuw tekenen indien in menu
+	MinuteChanged = 1;
 }
 
 void Output_CamDefocus (void)
@@ -305,6 +308,9 @@ void Output_CamDefocus (void)
 		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
 	else
 		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
+
+	// UI opnieuw tekenen indien in menu
+	MinuteChanged = 1;
 }
 
 void Output_CamTrigger (void)
@@ -313,6 +319,9 @@ void Output_CamTrigger (void)
 		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_SET);
 	else
 		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_SET);
+
+	// UI opnieuw tekenen indien in menu
+	MinuteChanged = 1;
 }
 
 void Output_CamUntrigger (void)
@@ -321,6 +330,9 @@ void Output_CamUntrigger (void)
 		HAL_GPIO_WritePin(CAM_A_GPIO_Port, CAM_A_Pin, GPIO_PIN_RESET);
 	else
 		HAL_GPIO_WritePin(CAM_B_GPIO_Port, CAM_B_Pin, GPIO_PIN_RESET);
+
+	// UI opnieuw tekenen indien in menu
+	MinuteChanged = 1;
 }
 
 GPIO_PinState CAM_FocusSwitch (void)
