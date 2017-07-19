@@ -40,12 +40,13 @@ const ui_menu LT_DebugMenu = {
 const ui_menu	LT_SettingsMenu;
 
 const ui_menuparam	P_Shuttertime = { &func_setshuttertime, &func_getshuttertime };
+const ui_menuparam	P_CameraContact = { &func_setcontact, &func_getcontact };
 
 const ui_menu LT_CameraMenu = {
 		"Camera",
 		3,
 		(ui_menuitem[]) {
-			{ "Focus/Sluiter" },
+			{ "Focus/Sluiter", NULL, NULL, &P_CameraContact },
 			{ "Sluitertijd", NULL, NULL, &P_Shuttertime },
 			{ "Terug", &UI_ShowMenu, &LT_SettingsMenu }
 		}
@@ -102,6 +103,17 @@ const ui_menu LT_LightningMenu = {
 			{ "Gevoeligheid" },
 			{ "Flanktijd" },
 			{ "Terug" }
+		}
+};
+
+const ui_menu LT_LightningModeMenu = {
+		"Bliksem",
+		4,
+		(ui_menuitem[]) {
+			{ "Actief" }, // JA / NEE
+			{ "Prefocus" }, // JA / NEE
+			{ "Instellen", &UI_ShowMenu, &LT_LightningMenu },
+			{ "Terug", &UI_ShowMenu, &LT_MainMenu }
 		}
 };
 

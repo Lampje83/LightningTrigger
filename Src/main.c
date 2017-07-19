@@ -806,7 +806,7 @@ void HAL_SYSTICK_Callback (void)
 	if ((HAL_GetTick() > triggertick) && untrigtick == 0)
 	{
 		Output_CamUntrigger ();
-		Output_CamDefocus ();
+		// Output_CamDefocus ();
 		untrigtick = HAL_GetTick ();
 	}
 
