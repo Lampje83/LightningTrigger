@@ -449,7 +449,7 @@ void func_showscope (void)
 
 	for (x = 0; x < 128; x++)
 	{
-		SH1106_SetPixel (x, 63 - (scopedata[x] >> 3), DM_NORMAL);
+		SH1106_SetPixel (x, 63 - (scopedata[x] >> 2), DM_NORMAL);
 	}
 	Dirty = 1;
 }

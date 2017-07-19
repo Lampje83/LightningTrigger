@@ -64,7 +64,7 @@ void Trig_StartLightningTrigger (void)
 	LT_SetNewHandler (&Trig_DoLightning);
 }
 
-// ADC Callback voor bliskemtrigger. Hier wordt de camera getriggerd
+// ADC Callback voor bliksemtrigger. Hier wordt de camera getriggerd
 void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 {
 
@@ -72,6 +72,7 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 	uint16_t i;
 	static float	minvoltage[2] = { 9, 9 };
 	static float	maxvoltage[2] = { 0, 0 };
+	static uint16_t	*prevsamples = NULL;	// vorige buffer, om einde terug te lezen
 
 	value[0] = 0;
 	value[1] = 0;
@@ -96,6 +97,7 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 		if (samples[i] < value[4]) value[4] = samples[i];
 	}
 
+	voltages[6] = voltages[0];	// vorig resultaat opslaan
 	voltages[0] = value[0] / (value[1] / 1.2);
 
 	maxvoltage[0] = value[3] * (length >> 2) / (value[1] / 1.2);
@@ -107,7 +109,7 @@ void Trig_LightningADCCallback (uint16_t *samples, uint16_t length)
 
 	if (!Trig_ADCFirstRun)
 	{
-		if ((voltages[0] - minvoltage[1]) > ((maxvoltage[1] - minvoltage[1]) * 4))
+		if ((voltages[0] - voltages[6]) > ((maxvoltage[1] - minvoltage[1]) * 4.0f))
 		{
 				// trigger!
 			func_TriggerCamera (0);
